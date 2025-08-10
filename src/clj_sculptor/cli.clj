@@ -1,7 +1,9 @@
 (ns clj-sculptor.cli
   (:require [clj-sculptor.core :as core]
+            [clj-sculptor.rules] ; Load rules
             [clojure.tools.cli :refer [parse-opts]]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.string :as str])
   (:gen-class))
 
 (def cli-options
@@ -18,15 +20,12 @@
 
       errors
       (do
-        (println "Errors:" (clojure.string/join ", " errors))
+        (println "Errors:" (str/join ", " errors))
         (System/exit 1))
 
       (:input options)
       (let [input-content (slurp (:input options))
-            parsed (core/parse-string input-content)
-            formatted (-> parsed
-                          core/apply-formatting-rules
-                          core/format-code)]
+            formatted (core/format-code input-content)]
         (if (:output options)
           (spit (:output options) formatted)
           (println formatted)))

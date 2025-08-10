@@ -4,8 +4,8 @@ This document tracks the implementation of formatting rules based on the
 [Clojure Style Guide](https://github.com/bbatsov/clojure-style-guide).
 
 ## Phase 1: Architecture & Core Infrastructure
-- [ ] Design formatting rule architecture - Create a plugin-based system where each rule is a
-      separate function
+- [x] Design formatting rule architecture - Create a multimethod-based system where rules
+      dispatch on node type
 - [ ] Add configuration system - Support for customizing rules (even though we start without
       config options)
 

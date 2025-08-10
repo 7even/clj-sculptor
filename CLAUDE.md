@@ -8,6 +8,12 @@ an AST enriched with comments, then generating formatted code using predefined f
 - Lowercase commit messages
 - One-line commits unless many changes
 - Multi-line format for co-authorship (blank line separation)
+- **Commit messages**: Describe what's being added/changed in the diff, not the
+  development process or removed alternatives
+
+## Code Style Guidelines
+- **Comparisons**: When comparing unknown value with constant, put constant second:
+  `(= unknown-value :constant)` not `(= :constant unknown-value)`
 
 ## Test Guidelines
 - **Tests**: Use `(testing "when condition" ...)` not `(testing "returns result" ...)`
