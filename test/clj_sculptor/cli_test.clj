@@ -6,13 +6,13 @@
   (:import [java.io File StringWriter]))
 
 (deftest cli-help-test
-  (testing "CLI shows help"
+  (testing "when given --help flag"
     (let [output (with-out-str (cli/-main "--help"))]
       (is (str/includes? output "clj-sculptor"))
       (is (str/includes? output "Show help")))))
 
 (deftest cli-main-test
-  (testing "CLI processes input file"
+  (testing "when given input file"
     (let [temp-file (File/createTempFile "test" ".clj")
           test-code "(def x 1)"]
       (try
@@ -21,7 +21,7 @@
           (is (= (str test-code "\n") output)))
         (finally
           (.delete temp-file)))))
-  (testing "CLI writes to output file"
+  (testing "when given input and output files"
     (let [input-file (File/createTempFile "input" ".clj")
           output-file (File/createTempFile "output" ".clj")
           test-code "(def x 1)"]
@@ -34,7 +34,7 @@
           (.delete output-file))))))
 
 (deftest main-exec-fn-test
-  (testing "main function works with exec-fn format"
+  (testing "when called via exec-fn with options map"
     (let [temp-file (File/createTempFile "test" ".clj")
           test-code "(def x 1)"]
       (try
