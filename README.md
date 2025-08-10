@@ -16,14 +16,13 @@ A Clojure library and CLI tool for parsing Clojure/ClojureScript code into an AS
 ```clojure
 (require '[clj-sculptor.core :as sculptor])
 
-;; Parse code string
-(def parsed (sculptor/parse-string "(def x 1)"))
+;; Format code directly
+(sculptor/format-code "(defn foo [x]\n    (+ x 1))")
+;; => "(defn foo [x]\n  (+ x 1))"
 
-;; Apply formatting rules
-(def formatted-ast (sculptor/apply-formatting-rules parsed))
-
-;; Generate formatted code
-(sculptor/format-code formatted-ast)
+;; Works with vectors, maps, and nested structures
+(sculptor/format-code "[1\n  2\n   3]")
+;; => "[1\n 2\n 3]"
 ```
 
 ### CLI
