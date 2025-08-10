@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "clj-sculptor": {
+      "type": "stdio",
+      "command": "./mcp-nrepl.bb",
+      "args": [],
+      "env": {}
+    }
+  }
+}
