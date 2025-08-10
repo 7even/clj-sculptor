@@ -10,7 +10,10 @@ This document tracks the implementation of formatting rules based on the
       config options)
 
 ## Phase 2: Indentation & Alignment Rules
-- [ ] 2-space indentation - Convert tabs to spaces, ensure consistent indentation depth
+- [x] 2-space indentation - Convert tabs to spaces, ensure consistent indentation depth
+      (AST-aware: functions=2 spaces, vectors/maps/sets=1 space alignment)
+- [ ] Add comprehensive tests for context-aware indentation - Test vectors `[1\n 2\n 3]`,
+      maps `{:a 1\n :b 2}`, sets `#{1\n 2}`, nested structures `{:values [1\n  2]}`
 - [ ] Vertical alignment of function arguments - Align multi-line function call arguments
 - [ ] Let binding alignment - Vertically align binding pairs in `let` forms
 - [ ] Map key alignment - Align keys in map literals

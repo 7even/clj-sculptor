@@ -42,7 +42,10 @@
   (-> code-str
       parse-string
       walk-and-format
-      z/root-string))
+      z/root-string
+      ;; Remove leading whitespace only from the very beginning of the document
+      ;; This handles cases where the first form has embedded leading whitespace
+      (str/replace #"^[ \t]+" "")))
 
 ;; -----------------------------------------------------------------------------
 ;; Helper functions for rule implementations
@@ -98,3 +101,47 @@
   "Split a string into lines, preserving the line endings."
   [s]
   (str/split s #"(?<=\n)"))
+
+(defn calculate-indentation-depth
+  "Calculate the proper indentation depth for a zipper location.
+   Returns the number of spaces that should indent this position."
+  [zloc]
+  ;; Context-aware indentation based on container types
+  (loop [current (z/up zloc)
+         depth 0]
+    (if current
+      (case (z/tag current)
+        :forms
+        ;; Stop counting when we reach :forms (document root)
+        depth
+
+        :vector
+        ;; Vector contents align with first element (1 space)
+        (recur (z/up current) (+ depth 1))
+
+        :map
+        ;; Map contents align with first element (1 space)
+        (recur (z/up current) (+ depth 1))
+
+        :set
+        ;; Set contents align with first element (1 space)
+        (recur (z/up current) (+ depth 1))
+
+        ;; Default case: lists and other forms use 2-space nesting
+        (recur (z/up current) (+ depth 2)))
+      ;; No parent, so we're at root - depth is 0
+      depth)))
+
+(defn get-parent-form-type
+  "Get the type of the parent form (defn, let, if, etc.)."
+  [zloc]
+  (let [parent-first-elem (some-> zloc z/up z/down z/sexpr)]
+    (when (symbol? parent-first-elem)
+      parent-first-elem)))
+
+(defn should-indent-as-body?
+  "Check if this position should be indented as a form body (2 spaces from parent)."
+  [zloc]
+  (let [parent-type (get-parent-form-type zloc)]
+    ;; Forms that have body indentation
+    (contains? #{:defn :def :when :if :let :loop :with-out-str :cond} parent-type)))

@@ -10,18 +10,41 @@
 (defmethod core/apply-rules :whitespace [zloc]
   (let [node (z/node zloc)
         content (str node)]
-    ;; Check if this is trailing whitespace (spaces only, no newlines)
-    (if (and (re-find #"^ +$" content) ; Only spaces
-             (or (z/end? (z/next* zloc)) ; At end of file
-                 (= (z/tag (z/next* zloc)) ; Before newline
-                    :newline)))
+    (cond
+      ;; Case 1: Trailing whitespace (spaces before newline or end of file)
+      (and (re-find #"^ +$" content) ; Only spaces
+           (or (z/end? (z/next* zloc)) ; At end of file
+               (= (z/tag (z/next* zloc)) :newline))) ; Before newline
       ;; Remove the whitespace entirely
       (z/remove* zloc)
-      ;; Otherwise, clean any embedded trailing whitespace
-      (if (re-find #" +\n" content)
-        (let [cleaned (core/remove-trailing-whitespace content)]
-          (z/replace zloc (n/whitespace-node cleaned)))
-        zloc))))
+
+      ;; Case 2: Indentation whitespace (spaces after newline)
+      (and (re-find #"^ +$" content) ; Only spaces
+           (let [prev (z/prev* zloc)]
+             (and prev (= (z/tag prev) :newline))))
+      ;; Calculate proper indentation based on AST depth
+      (let [current-spaces (count content)
+            target-spaces (core/calculate-indentation-depth zloc)]
+        (cond
+          (= target-spaces 0)
+          ;; Remove indentation entirely for top-level forms
+          (z/remove* zloc)
+
+          (not= current-spaces target-spaces)
+          ;; Replace with correct number of spaces
+          (z/replace zloc (n/spaces target-spaces))
+
+          :else
+          zloc))
+
+      ;; Case 3: Embedded trailing whitespace
+      (re-find #" +\n" content)
+      (let [cleaned (core/remove-trailing-whitespace content)]
+        (z/replace zloc (n/whitespace-node cleaned)))
+
+      ;; Case 4: No changes needed
+      :else
+      zloc)))
 
 (defmethod core/apply-rules :newline [zloc]
   ;; Newlines are separate from whitespace in rewrite-clj
