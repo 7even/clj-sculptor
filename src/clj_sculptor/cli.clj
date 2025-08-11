@@ -1,6 +1,5 @@
 (ns clj-sculptor.cli
   (:require [clj-sculptor.core :as core]
-            [clj-sculptor.rules] ; Load rules
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.java.io :as io]
             [clojure.string :as str])
