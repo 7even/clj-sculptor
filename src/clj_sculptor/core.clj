@@ -6,7 +6,7 @@
 (defn parse-string
   "Parse a Clojure string into a zipper with comments preserved."
   [s]
-  (z/of-string s))
+  (z/of-string s {:track-position? true}))
 
 (defn walk-and-format
   "Walk through the entire tree and apply rules to each node."

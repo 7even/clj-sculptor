@@ -105,10 +105,10 @@
                       "    :other {:nested [4"
                       "                       5]}}")
           expected (lines "{:values [1"
-                          "  2"
-                          "  3]"
+                          "          2"
+                          "          3]"
                           " :other {:nested [4"
-                          "   5]}}")
+                          "                  5]}}")
           formatted (core/format-code code)]
       (is (= expected formatted))))
 

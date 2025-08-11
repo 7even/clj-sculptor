@@ -115,6 +115,41 @@
     ;; Forms that have body indentation
     (contains? #{:defn :def :when :if :let :loop :with-out-str :cond} parent-type)))
 
+(defn collection-parent?
+  "Check if a zipper location represents a collection (map, vector, set, list)."
+  [zloc]
+  (contains? #{:map :vector :set :list}
+             (z/tag zloc)))
+
+(defn find-collection-parent
+  "Return the parent if it's a collection, otherwise nil."
+  [zloc]
+  (let [parent (z/up zloc)]
+    (when (collection-parent? parent)
+      parent)))
+
+(defn get-alignment-column
+  "Get the column position where elements in this collection should align."
+  [zloc]
+  (some-> zloc
+          find-collection-parent
+          z/down
+          z/position
+          second))
+
+(defn calculate-alignment-spaces
+  "Calculate spaces needed for position-based alignment.
+   Returns the number of spaces to indent this element."
+  [zloc]
+  ;; Use position-based alignment for collections (map, vector, set), otherwise use depth-based
+  (if-let [target-col (and (some-> zloc
+                                   find-collection-parent
+                                   z/tag
+                                   #{:map :vector :set})
+                           (get-alignment-column zloc))]
+    (max 0 (dec target-col)) ; target-col is 1-indexed, spaces are 0-indexed
+    (calculate-indentation-depth zloc)))
+
 ;; -----------------------------------------------------------------------------
 ;; Whitespace rules
 
@@ -133,9 +168,9 @@
       (and (re-find #"^ +$" content) ; Only spaces
            (let [prev (z/prev* zloc)]
              (and prev (= (z/tag prev) :newline))))
-      ;; Calculate proper indentation based on AST depth
+      ;; Calculate proper alignment/indentation based on AST position and depth
       (let [current-spaces (count content)
-            target-spaces (calculate-indentation-depth zloc)]
+            target-spaces (calculate-alignment-spaces zloc)]
         (cond
           (= target-spaces 0)
           ;; Remove indentation entirely for top-level forms
