@@ -93,8 +93,8 @@
         (recur (z/up current) (+ depth 1))
 
         :set
-        ;; Set contents align with first element (1 space)
-        (recur (z/up current) (+ depth 1))
+        ;; Set contents align with first element (2 spaces after #{)
+        (recur (z/up current) (+ depth 2))
 
         ;; Default case: lists and other forms use 2-space nesting
         (recur (z/up current) (+ depth 2)))

@@ -66,3 +66,60 @@
                           "    (dec x)))")
           formatted (core/format-code code)]
       (is (= expected formatted)))))
+
+(deftest test-context-aware-indentation
+  (testing "when formatting vectors with 1-space alignment"
+    (let [code (lines "[1"
+                      "  2"
+                      "   3]")
+          expected (lines "[1"
+                          " 2"
+                          " 3]")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+
+  (testing "when formatting maps with 1-space alignment"
+    (let [code (lines "{:a 1"
+                      "   :b 2"
+                      "    :c 3}")
+          expected (lines "{:a 1"
+                          " :b 2"
+                          " :c 3}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+
+  (testing "when formatting sets with 1-space alignment"
+    (let [code (lines "#{:a"
+                      "   :b"
+                      "    :c}")
+          expected (lines "#{:a"
+                          "  :b"
+                          "  :c}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+
+  (testing "when formatting nested structures"
+    (let [code (lines "{:values [1"
+                      "             2"
+                      "             3]"
+                      "    :other {:nested [4"
+                      "                       5]}}")
+          expected (lines "{:values [1"
+                          "  2"
+                          "  3]"
+                          " :other {:nested [4"
+                          "   5]}}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+
+  (testing "when formatting function calls inside collections"
+    (let [code (lines "[(defn foo [x]"
+                      "      (+ x 1))"
+                      "    (defn bar [y]"
+                      "      (* y 2))]")
+          expected (lines "[(defn foo [x]"
+                          "   (+ x 1))"
+                          " (defn bar [y]"
+                          "   (* y 2))]")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
