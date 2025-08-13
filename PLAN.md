@@ -12,8 +12,10 @@ This document tracks the implementation of formatting rules based on the
 ## Phase 2: Indentation & Alignment Rules
 - [x] 2-space indentation - Convert tabs to spaces, ensure consistent indentation depth
       (AST-aware: functions=2 spaces, vectors/maps/sets=1 space alignment)
-- [ ] Add comprehensive tests for context-aware indentation - Test vectors `[1\n 2\n 3]`,
+- [x] Add comprehensive tests for context-aware indentation - Test vectors `[1\n 2\n 3]`,
       maps `{:a 1\n :b 2}`, sets `#{1\n 2}`, nested structures `{:values [1\n  2]}`
+- [x] Position-based alignment for collection elements - Align with first element position
+- [x] Newline indentation insertion - Insert proper indentation after newlines when missing
 - [ ] Vertical alignment of function arguments - Align multi-line function call arguments
 - [ ] Let binding alignment - Vertically align binding pairs in `let` forms
 - [ ] Map key alignment - Align keys in map literals
@@ -21,8 +23,9 @@ This document tracks the implementation of formatting rules based on the
 ## Phase 3: Spacing & Whitespace Rules
 - [ ] Bracket spacing - Add spaces around brackets when preceded/followed by text
 - [ ] Comma handling - Remove commas from sequential collections, make optional for maps
-- [ ] Trailing whitespace removal - Strip whitespace at end of lines
-- [ ] Single space normalization - Ensure single spaces between elements
+- [x] Trailing whitespace removal - Strip whitespace at end of lines
+- [x] Leading whitespace removal - Remove whitespace at document start
+- [x] Single space normalization - Ensure single spaces between elements
 
 ## Phase 4: Line Management
 - [ ] 96-character line length - Break long lines appropriately

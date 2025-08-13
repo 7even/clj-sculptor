@@ -31,6 +31,13 @@
           formatted (core/format-code code)]
       (is (= expected formatted)))))
 
+(deftest test-leading-whitespace-rule
+  (testing "when removing leading whitespace at document start"
+    (let [code "  (def x 1)"
+          expected "(def x 1)"
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
+
 (deftest test-2-space-indentation-rule
   (testing "when converting 4-space indentation to 2-space"
     (let [code (lines "(defn foo [x]"
@@ -123,3 +130,34 @@
                           "   (* y 2))]")
           formatted (core/format-code code)]
       (is (= expected formatted)))))
+
+(deftest test-newline-indentation-insertion
+  (testing "when newline is not followed by whitespace"
+    (let [code "{:a 1\n:b 2}"
+          expected "{:a 1\n :b 2}"
+          formatted (core/format-code code)]
+      (is (= expected formatted) "Should insert 1 space for map alignment")))
+
+  (testing "when vector elements have no indentation after newline"
+    (let [code "[1\n2\n3]"
+          expected "[1\n 2\n 3]"
+          formatted (core/format-code code)]
+      (is (= expected formatted) "Should insert 1 space for vector alignment")))
+
+  (testing "when set elements have no indentation after newline"
+    (let [code "#{1\n2\n3}"
+          expected "#{1\n  2\n  3}"
+          formatted (core/format-code code)]
+      (is (= expected formatted) "Should insert 2 spaces for set alignment")))
+
+  (testing "when function body has no indentation after newline"
+    (let [code "(defn foo []\n:bar)"
+          expected "(defn foo []\n  :bar)"
+          formatted (core/format-code code)]
+      (is (= expected formatted) "Should insert 2 spaces for function body")))
+
+  (testing "when nested map has no indentation"
+    (let [code "{:outer {:inner 1\n:key 2}}"
+          expected "{:outer {:inner 1\n         :key 2}}"
+          formatted (core/format-code code)]
+      (is (= expected formatted) "Should align nested map keys with position tracking"))))

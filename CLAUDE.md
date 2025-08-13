@@ -29,3 +29,13 @@ an AST enriched with comments, then generating formatted code using predefined f
 - `rewrite-clj/rewrite-clj` - AST manipulation with comment preservation
 - `org.clojure/tools.cli` - Command-line argument parsing
 - `lambdaisland/kaocha` - Test runner
+
+## rewrite-clj Usage
+- **Raw functions (with `*` suffix)**: Use the "raw" versions of rewrite-clj functions
+  (e.g., `z/next*`, `z/insert-right*`) for whitespace manipulation. These functions:
+  - Don't skip whitespace/comment nodes during navigation (`z/next*`, `z/prev*`)
+  - Don't automatically insert whitespace (`z/insert-right*`, `z/insert-left*`)
+- **Regular functions**: The non-starred versions skip whitespace/comments and may add
+  spacing automatically
+- Example: `z/insert-right` adds space "if necessary", while `z/insert-right*` inserts
+  exactly what you specify

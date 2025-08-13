@@ -157,45 +157,62 @@
   (let [node (z/node zloc)
         content (str node)]
     (cond
-      ;; Case 1: Trailing whitespace (spaces before newline or end of file)
-      (and (re-find #"^ +$" content) ; Only spaces
-           (or (z/end? (z/next* zloc)) ; At end of file
-               (= (z/tag (z/next* zloc)) :newline))) ; Before newline
-      ;; Remove the whitespace entirely
+      ;; Leading whitespace at document start - remove entirely
+      (nil? (z/prev* zloc))
       (z/remove* zloc)
 
-      ;; Case 2: Indentation whitespace (spaces after newline)
-      (and (re-find #"^ +$" content) ; Only spaces
-           (let [prev (z/prev* zloc)]
-             (and prev (= (z/tag prev) :newline))))
-      ;; Calculate proper alignment/indentation based on AST position and depth
-      (let [current-spaces (count content)
-            target-spaces (calculate-alignment-spaces zloc)]
-        (cond
-          (= target-spaces 0)
-          ;; Remove indentation entirely for top-level forms
-          (z/remove* zloc)
+      ;; Indentation whitespace - handled by :newline rule
+      (let [prev (z/prev* zloc)]
+        (= (z/tag prev)
+           :newline))
+      zloc
 
-          (not= current-spaces target-spaces)
-          ;; Replace with correct number of spaces
-          (z/replace zloc (n/spaces target-spaces))
+      ;; Trailing whitespace - remove entirely
+      (or (z/end? (z/next* zloc))
+          (= (z/tag (z/next* zloc))
+             :newline))
+      (z/remove* zloc)
 
-          :else
-          zloc))
+      ;; Multiple spaces between tokens - normalize to single space
+      (> (count content) 1)
+      (z/replace* zloc (n/spaces 1))
 
-      ;; Case 3: Embedded trailing whitespace
-      (re-find #" +\n" content)
-      (let [cleaned (remove-trailing-whitespace content)]
-        (z/replace zloc (n/whitespace-node cleaned)))
-
-      ;; Case 4: No changes needed
       :else
       zloc)))
 
 (defmethod apply-rules :newline [zloc]
-  ;; Newlines are separate from whitespace in rewrite-clj
-  ;; For now, just return as-is
-  zloc)
+  ;; Manage all indentation following this newline
+  (let [next-node (z/next* zloc)]
+    (cond
+      ;; Skip empty lines and end of file
+      (or (nil? next-node)
+          (= (z/tag next-node)
+             :newline))
+      zloc
+
+      ;; Handle indentation for any content after newline
+      :else
+      (let [target-node (if (= (z/tag next-node)
+                               :whitespace)
+                          (z/next* next-node) ; Skip whitespace to find content
+                          next-node)
+            target-spaces (calculate-alignment-spaces target-node)]
+        (cond
+          (= target-spaces 0)
+          ;; Top-level forms need no indentation
+          (if (= (z/tag next-node)
+                 :whitespace)
+            (z/remove* next-node)
+            zloc)
+
+          (= (z/tag next-node)
+             :whitespace)
+          ;; Replace existing whitespace with correct amount
+          (z/replace* next-node (n/spaces target-spaces))
+
+          :else
+          ;; Insert new whitespace
+          (z/insert-right* zloc (n/spaces target-spaces)))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Comma rules
