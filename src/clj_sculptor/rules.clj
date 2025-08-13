@@ -137,18 +137,92 @@
           z/position
           second))
 
+(defn function-call?
+  "Check if a list represents a function call (first element is a symbol).
+   Excludes special forms that have their own formatting rules."
+  [zloc]
+  (and (= (z/tag zloc)
+          :list)
+       (some-> zloc z/down z/sexpr symbol?)
+       ;; Exclude special forms that should not use function argument alignment
+       (not (contains? #{'let 'if 'when 'cond 'case 'for 'doseq 'dotimes
+                         'defn 'defn- 'def 'defmacro 'defmethod 'defmulti
+                         'ns 'require 'import 'use}
+                       (some-> zloc z/down z/sexpr)))))
+
+(defn get-function-first-arg-position
+  "Get the column position of the first argument in a function call.
+   Returns nil if not a function call or first arg is on next line."
+  [list-zloc]
+  (when (function-call? list-zloc)
+    (let [func-name (some-> list-zloc z/down)
+          ;; Use z/right to skip whitespace/newlines and get first actual argument
+          first-arg (some-> func-name z/right)]
+      (when (and func-name first-arg)
+        (let [[func-line func-col] (z/position func-name)
+              [arg-line arg-col] (z/position first-arg)]
+          ;; Only return position if first arg is on same line as function name
+          (when (= func-line arg-line)
+            arg-col))))))
+
+(defn function-arg-alignment-spaces
+  "Calculate alignment spaces for function arguments.
+   Since first arg is always moved to same line as function name,
+   we always align with the first argument position."
+  [zloc]
+  (when-let [parent-list (some-> zloc z/up)]
+    (when (function-call? parent-list)
+      (when-let [first-arg-col (get-function-first-arg-position parent-list)]
+        ;; Align with the first argument position
+        (max 0 (dec first-arg-col))))))
+
+(defn newline-after-function-name?
+  "Check if this newline is immediately after a function name in a function call."
+  [newline-zloc]
+  (when-let [prev-token (z/prev* newline-zloc)]
+    (when (= (z/tag prev-token)
+             :token)
+      (when-let [parent (z/up newline-zloc)]
+        (and (function-call? parent)
+             ;; Check if prev-token is the function name (first child of parent)
+             (= prev-token
+                (z/down parent)))))))
+
+(defn whitespace-after-function-newline?
+  "Check if this whitespace follows a newline that's after a function name."
+  [whitespace-zloc]
+  (when-let [prev-node (z/prev* whitespace-zloc)]
+    (when (= (z/tag prev-node)
+             :newline)
+      (newline-after-function-name? prev-node))))
+
+(defn whitespace-between-function-args?
+  "Check if this whitespace is between arguments in a function call on the same line."
+  [whitespace-zloc]
+  (when-let [prev-node (z/left* whitespace-zloc)]
+    (when-let [next-node (z/right* whitespace-zloc)]
+      ;; Check if both neighbors are non-whitespace/non-newline nodes (any kind of argument)
+      (when (and (not (#{:whitespace :newline :comma} (z/tag prev-node)))
+                 (not (#{:whitespace :newline :comma} (z/tag next-node))))
+        ;; Check if we're in a function call
+        (when-let [parent (z/up whitespace-zloc)]
+          (when (function-call? parent)
+            ;; Check if prev-node is NOT the function name (first child)
+            (let [func-name (z/down parent)]
+              (not= prev-node func-name))))))))
+
 (defn calculate-alignment-spaces
   "Calculate spaces needed for position-based alignment.
    Returns the number of spaces to indent this element."
   [zloc]
-  ;; Use position-based alignment for collections (map, vector, set), otherwise use depth-based
-  (if-let [target-col (and (some-> zloc
-                                   find-collection-parent
-                                   z/tag
-                                   #{:map :vector :set})
-                           (get-alignment-column zloc))]
-    (max 0 (dec target-col)) ; target-col is 1-indexed, spaces are 0-indexed
-    (calculate-indentation-depth zloc)))
+  (or (function-arg-alignment-spaces zloc)
+      (when-let [target-col (and (some-> zloc
+                                         find-collection-parent
+                                         z/tag
+                                         #{:map :vector :set})
+                                 (get-alignment-column zloc))]
+        (max 0 (dec target-col)))
+      (calculate-indentation-depth zloc)))
 
 ;; -----------------------------------------------------------------------------
 ;; Whitespace rules
@@ -161,10 +235,24 @@
       (nil? (z/prev* zloc))
       (z/remove* zloc)
 
-      ;; Indentation whitespace - handled by :newline rule
+      ;; Whitespace between function args on same line - replace with newline + indentation
+      (whitespace-between-function-args? zloc)
+      (let [next-arg (z/right* zloc)
+            alignment-spaces (calculate-alignment-spaces next-arg)]
+        ;; Replace whitespace with newline followed by proper indentation
+        (-> zloc
+            (z/replace* (n/newlines 1))
+            (z/insert-right* (n/spaces alignment-spaces))))
+
+      ;; Whitespace after function name (that was converted from newline) - remove it
+      (whitespace-after-function-newline? zloc)
+      (z/remove* zloc)
+
+      ;; Indentation whitespace - handled by :newline rule (only for actual newlines)
       (let [prev (z/prev* zloc)]
-        (= (z/tag prev)
-           :newline))
+        (and (= (z/tag prev)
+                :newline)
+             (not (newline-after-function-name? prev))))
       zloc
 
       ;; Trailing whitespace - remove entirely
@@ -174,45 +262,62 @@
       (z/remove* zloc)
 
       ;; Multiple spaces between tokens - normalize to single space
-      (> (count content) 1)
-      (z/replace* zloc (n/spaces 1))
+      (> (count content)
+         1)
+      (z/replace* zloc
+                  (n/spaces 1))
 
       :else
       zloc)))
 
 (defmethod apply-rules :newline [zloc]
-  ;; Manage all indentation following this newline
-  (let [next-node (z/next* zloc)]
-    (cond
-      ;; Skip empty lines and end of file
+  (cond
+    ;; Newline after function name - replace with space and handle following whitespace
+    (newline-after-function-name? zloc)
+    (let [next-node (z/next* zloc)]
+      (if (and (some? next-node)
+               (= (z/tag next-node)
+                  :whitespace))
+        ;; Replace newline with space and remove the following whitespace
+        (-> zloc
+            (z/replace* (n/spaces 1))
+            z/next*
+            z/remove*)
+        ;; Just replace newline with space
+        (z/replace* zloc (n/spaces 1))))
+
+    ;; Skip empty lines and end of file
+    (let [next-node (z/next* zloc)]
       (or (nil? next-node)
           (= (z/tag next-node)
-             :newline))
-      zloc
+             :newline)))
+    zloc
 
-      ;; Handle indentation for any content after newline
-      :else
-      (let [target-node (if (= (z/tag next-node)
-                               :whitespace)
-                          (z/next* next-node) ; Skip whitespace to find content
-                          next-node)
-            target-spaces (calculate-alignment-spaces target-node)]
-        (cond
-          (= target-spaces 0)
-          ;; Top-level forms need no indentation
-          (if (= (z/tag next-node)
-                 :whitespace)
-            (z/remove* next-node)
-            zloc)
+    ;; Handle indentation for any content after newline
+    :else
+    (let [next-node (z/next* zloc)
+          target-node (if (= (z/tag next-node) :whitespace)
+                        (z/next* next-node) ; Skip whitespace to find content
+                        next-node)
+          target-spaces (calculate-alignment-spaces target-node)]
+      (cond
+        (= target-spaces 0)
+        ;; Top-level forms need no indentation
+        (if (= (z/tag next-node)
+               :whitespace)
+          (z/remove* next-node)
+          zloc)
 
-          (= (z/tag next-node)
-             :whitespace)
-          ;; Replace existing whitespace with correct amount
-          (z/replace* next-node (n/spaces target-spaces))
+        (= (z/tag next-node)
+           :whitespace)
+        ;; Replace existing whitespace with correct amount
+        (z/replace* next-node
+                    (n/spaces target-spaces))
 
-          :else
-          ;; Insert new whitespace
-          (z/insert-right* zloc (n/spaces target-spaces)))))))
+        :else
+        ;; Insert new whitespace
+        (z/insert-right* zloc
+                         (n/spaces target-spaces))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Comma rules
@@ -227,9 +332,7 @@
 ;; List rules (function calls, special forms)
 
 (defmethod apply-rules :list [zloc]
-  ;; Will handle:
-  ;; - Function argument alignment
-  ;; - Special form formatting (let, cond, etc.)
+  ;; Function call formatting is handled by whitespace and newline rules
   zloc)
 
 ;; -----------------------------------------------------------------------------

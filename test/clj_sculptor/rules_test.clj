@@ -9,7 +9,7 @@
   (str/join "\n" lines))
 
 (deftest test-trailing-whitespace-rule
-  (testing "when removing trailing whitespace"
+  (testing "when lines have trailing spaces"
     (let [code-with-trailing (lines "(defn foo []  "
                                     "  :bar)  ")
           expected (lines "(defn foo []"
@@ -23,7 +23,7 @@
           formatted (core/format-code clean-code)]
       (is (= clean-code formatted))))
 
-  (testing "when whitespace has multiple trailing spaces"
+  (testing "when multiple lines have various amounts of trailing spaces"
     (let [code (lines "  (def x 1)   "
                       "  (def y 2)  ")
           expected (lines "(def x 1)"
@@ -32,50 +32,56 @@
       (is (= expected formatted)))))
 
 (deftest test-leading-whitespace-rule
-  (testing "when removing leading whitespace at document start"
+  (testing "when document starts with whitespace"
     (let [code "  (def x 1)"
           expected "(def x 1)"
           formatted (core/format-code code)]
       (is (= expected formatted)))))
 
 (deftest test-2-space-indentation-rule
-  (testing "when converting 4-space indentation to 2-space"
+  (testing "when code has 4-space indentation"
     (let [code (lines "(defn foo [x]"
                       "    (+ x 1))")
           expected (lines "(defn foo [x]"
-                          "  (+ x 1))")
+                          "  (+ x"
+                          "     1))")
           formatted (core/format-code code)]
       (is (= expected formatted))))
 
-  (testing "when converting 8-space indentation to 2-space"
+  (testing "when code has 8-space indentation"
     (let [code (lines "(defn bar [y]"
                       "        (* y 2))")
           expected (lines "(defn bar [y]"
-                          "  (* y 2))")
+                          "  (* y"
+                          "     2))")
           formatted (core/format-code code)]
       (is (= expected formatted))))
 
   (testing "when code already has 2-space indentation"
     (let [code (lines "(defn baz [z]"
                       "  (- z 1))")
+          expected (lines "(defn baz [z]"
+                          "  (- z"
+                          "     1))")
           formatted (core/format-code code)]
-      (is (= code formatted))))
+      (is (= expected formatted))))
 
-  (testing "when dealing with nested indentation (AST-aware)"
+  (testing "when code has nested forms with inconsistent indentation"
     (let [code (lines "(defn nested [x]"
                       "    (if (> x 0)"
                       "        (inc x)"
                       "        (dec x)))")
           ;; AST-aware indentation: 2 spaces for defn body, 4 spaces for if branches
           expected (lines "(defn nested [x]"
-                          "  (if (> x 0)"
+                          "  (if (> x"
+                          "         0)"
                           "    (inc x)"
                           "    (dec x)))")
           formatted (core/format-code code)]
       (is (= expected formatted)))))
 
 (deftest test-context-aware-indentation
-  (testing "when formatting vectors with 1-space alignment"
+  (testing "when vector elements have inconsistent spacing"
     (let [code (lines "[1"
                       "  2"
                       "   3]")
@@ -85,7 +91,7 @@
           formatted (core/format-code code)]
       (is (= expected formatted))))
 
-  (testing "when formatting maps with 1-space alignment"
+  (testing "when map entries have inconsistent alignment"
     (let [code (lines "{:a 1"
                       "   :b 2"
                       "    :c 3}")
@@ -95,7 +101,7 @@
           formatted (core/format-code code)]
       (is (= expected formatted))))
 
-  (testing "when formatting sets with 1-space alignment"
+  (testing "when set elements have varied indentation"
     (let [code (lines "#{:a"
                       "   :b"
                       "    :c}")
@@ -105,7 +111,7 @@
           formatted (core/format-code code)]
       (is (= expected formatted))))
 
-  (testing "when formatting nested structures"
+  (testing "when nested collections have misaligned elements"
     (let [code (lines "{:values [1"
                       "             2"
                       "             3]"
@@ -119,15 +125,17 @@
           formatted (core/format-code code)]
       (is (= expected formatted))))
 
-  (testing "when formatting function calls inside collections"
+  (testing "when vector contains function definitions with wrong indentation"
     (let [code (lines "[(defn foo [x]"
                       "      (+ x 1))"
                       "    (defn bar [y]"
                       "      (* y 2))]")
           expected (lines "[(defn foo [x]"
-                          "   (+ x 1))"
+                          "   (+ x"
+                          "      1))"
                           " (defn bar [y]"
-                          "   (* y 2))]")
+                          "   (* y"
+                          "      2))]")
           formatted (core/format-code code)]
       (is (= expected formatted)))))
 
@@ -161,3 +169,51 @@
           expected "{:outer {:inner 1\n         :key 2}}"
           formatted (core/format-code code)]
       (is (= expected formatted) "Should align nested map keys with position tracking"))))
+
+(deftest test-function-argument-alignment
+  (testing "when function arguments are already on same line with first arg"
+    (let [code (lines "(some-function arg1"
+                      "  arg2"
+                      "     arg3)")
+          expected (lines "(some-function arg1"
+                          "               arg2"
+                          "               arg3)")
+          formatted (core/format-code code)]
+      (is (= expected formatted) "Arguments should align with first argument")))
+  (testing "when first argument is on next line after function name"
+    (let [code (lines "(some-function"
+                      "arg1"
+                      "   arg2"
+                      " arg3)")
+          expected (lines "(some-function arg1"
+                          "               arg2"
+                          "               arg3)")
+          formatted (core/format-code code)]
+      (is (= expected formatted) "First arg should move to same line, others should align")))
+  (testing "when function has multiple args on first line then more on subsequent lines"
+    (let [code (lines "(function arg1 arg2"
+                      "  arg3"
+                      "     arg4)")
+          expected (lines "(function arg1"
+                          "          arg2"
+                          "          arg3"
+                          "          arg4)")
+          formatted (core/format-code code)]
+      (is (= expected formatted) "Only first arg stays on same line, others align below")))
+  (testing "when function call is nested inside let binding"
+    (let [code (lines "(let [x (some-fn arg1"
+                      "           arg2)]"
+                      "  x)")
+          expected (lines "(let [x (some-fn arg1"
+                          "                 arg2)]"
+                          "  x)")
+          formatted (core/format-code code)]
+      (is (= expected formatted) "Nested function calls should maintain proper alignment")))
+  (testing "when first argument has extra indentation on next line"
+    (let [code (lines "(func"
+                      "   arg1"
+                      "   arg2)")
+          expected (lines "(func arg1"
+                          "      arg2)")
+          formatted (core/format-code code)]
+      (is (= expected formatted) "First arg should move to same line"))))
