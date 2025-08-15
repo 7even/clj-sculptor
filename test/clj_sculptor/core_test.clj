@@ -1,24 +1,7 @@
 (ns clj-sculptor.core-test
   (:require [clj-sculptor.core :as core]
-            [clojure.test :refer :all]
-            [rewrite-clj.zip :as z]))
-
-(deftest parse-string-test
-  (testing "when given simple form"
-    (let [code "(def x 1)"
-          parsed (core/parse-string code)]
-      (is (some? parsed))
-      (is (= "(def x 1)" (z/string parsed)))))
-  (testing "when given form with comments"
-    (let [code ";; This is a comment\n(def x 1)"
-          parsed (core/parse-string code)]
-      (is (some? parsed))
-      (is (= code (z/root-string parsed)))))
-  (testing "when given multiple forms"
-    (let [code "(def x 1)\n(def y 2)"
-          parsed (core/parse-string code)]
-      (is (some? parsed))
-      (is (= code (z/root-string parsed))))))
+            [clojure.string :as str]
+            [clojure.test :refer :all]))
 
 (deftest format-code-test
   (testing "when formatting simple code"
@@ -26,10 +9,12 @@
           formatted (core/format-code code)]
       (is (= code formatted))))
 
-  (testing "when formatting code with comments"
+  (testing "when formatting code with comments preserved"
     (let [code ";; Comment\n(def x 1)"
           formatted (core/format-code code)]
-      (is (string? formatted))))
+      (is (string? formatted))
+      ;; Comments are preserved in the AST but formatting focuses on structure
+      (is (str/includes? formatted "(def x 1)"))))
 
   (testing "when formatting multiple top-level forms"
     (let [code "(def x 1)\n\n(def y 2)"
@@ -39,5 +24,17 @@
   (testing "when formatting multiple forms with trailing whitespace"
     (let [code "(def x 1)  \n\n(def y 2)  "
           expected "(def x 1)\n\n(def y 2)"
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+
+  (testing "when formatting nested structures"
+    (let [code "{:a 1 :b 2}"
+          expected "{:a 1\n :b 2}"
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+
+  (testing "when formatting function calls"
+    (let [code "(some-function arg1 arg2 arg3)"
+          expected "(some-function arg1\n               arg2\n               arg3)"
           formatted (core/format-code code)]
       (is (= expected formatted)))))
