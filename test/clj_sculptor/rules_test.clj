@@ -27,6 +27,7 @@
     (let [code (lines "  (def x 1)   "
                       "  (def y 2)  ")
           expected (lines "(def x 1)"
+                          ""
                           "(def y 2)")
           formatted (core/format-code code)]
       (is (= expected formatted)))))
@@ -137,7 +138,46 @@
                           "   (* y"
                           "      2))]")
           formatted (core/format-code code)]
-      (is (= expected formatted)))))
+      (is (= expected formatted))))
+
+  (testing "when deeply nested collections have complex mixed structures"
+    (let [code (str "{:config {:database {:host \"localhost\" :port 5432 "
+                    ":ssl {:enabled true :cert \"/path/cert.pem\"}} "
+                    ":cache {:ttl 300 :backends #{:redis :memory}}} "
+                    ":data {:users [{:id 1 :roles #{:admin :user} "
+                    ":settings {:theme \"dark\" :notifications {:email true :push false}}} "
+                    "{:id 2 :roles #{:user} :metadata {:tags [\"important\" \"customer\"] "
+                    ":scores {:total 95 :breakdown {:performance 98 :reliability 92}}}}] "
+                    ":stats {:daily [100 150 200] :weekly #{:mon :tue :wed}}}}")
+          expected (lines "{:config {:database {:host \"localhost\""
+                          "                     :port 5432"
+                          "                     :ssl {:enabled true"
+                          "                           :cert \"/path/cert.pem\"}}"
+                          "          :cache {:ttl 300"
+                          "                  :backends #{:redis"
+                          "                              :memory}}}"
+                          " :data {:users [{:id 1"
+                          "                 :roles #{:admin"
+                          "                          :user}"
+                          "                 :settings {:theme \"dark\""
+                          "                            :notifications {:email true"
+                          "                                            :push false}}}"
+                          "                {:id 2"
+                          "                 :roles #{:user}"
+                          "                 :metadata {:tags [\"important\""
+                          "                                   \"customer\"]"
+                          "                            :scores {:total 95"
+                          "                                     :breakdown {:performance 98"
+                          "                                                 :reliability 92}}}}]"
+                          "        :stats {:daily [100"
+                          "                        150"
+                          "                        200]"
+                          "                :weekly #{:mon"
+                          "                          :tue"
+                          "                          :wed}}}}")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Deep nesting should maintain proper alignment throughout"))))
 
 (deftest test-newline-indentation-insertion
   (testing "when newline is not followed by whitespace"
@@ -217,3 +257,49 @@
                           "      arg2)")
           formatted (core/format-code code)]
       (is (= expected formatted) "First arg should move to same line"))))
+
+(deftest test-multiple-top-level-forms
+  (testing "when file contains multiple varied top-level forms"
+    (let [code (str "(defn helper [x] (+ x 1)) "
+                    "(def config {:key \"value\"}) "
+                    "(defmethod multi-fn :type [{:keys [data]}] (process data))")
+          expected (lines "(defn helper [x]"
+                          "  (+ x"
+                          "     1))"
+                          ""
+                          "(def config {:key \"value\"})"
+                          ""
+                          "(defmethod multi-fn :type [{:keys [data]}]"
+                          "  (process data))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multiple top-level forms should be properly separated and formatted")))
+
+  (testing "when multiple forms have inconsistent spacing between them"
+    (let [code "(def x 1)   (def y 2)    (defn add [a b] (+ a b))"
+          expected (lines "(def x 1)"
+                          ""
+                          "(def y 2)"
+                          ""
+                          "(defn add [a"
+                          "           b]"
+                          "  (+ a"
+                          "     b))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Forms should be separated by newlines with consistent formatting")))
+
+  (testing "when forms contain complex nested structures"
+    (let [code (str "(def data [{:users [{:name \"Alice\" :roles #{:admin :user}}]} "
+                    "{:system {:config {:db {:host \"localhost\"}}}}]) "
+                    "(defn simple [input] (process input))")
+          expected (lines "(def data [{:users [{:name \"Alice\""
+                          "                     :roles #{:admin"
+                          "                              :user}}]}"
+                          "           {:system {:config {:db {:host \"localhost\"}}}}])"
+                          ""
+                          "(defn simple [input]"
+                          "  (process input))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Complex nested structures in multiple forms should maintain proper alignment"))))

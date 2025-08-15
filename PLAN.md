@@ -21,8 +21,13 @@ This document tracks the implementation of formatting rules based on the
       formatting style
 - [ ] Let binding alignment - Vertically align binding pairs in `let` forms
 - [ ] Map key alignment - Align keys in map literals
+- [ ] Special form handling - Implement proper indentation for let, if, when, cond, etc.
 
 ## Phase 3: Spacing & Whitespace Rules
+- [ ] Refactor generate-whitespace-before to multimethod - Convert large case statement to
+      multimethod dispatching on context type for better organization
+- [x] Strip-and-generate approach - Implement two-phase whitespace handling for clean formatting
+- [x] Collection formatting consistency - Unified formatting for vectors, maps, and sets
 - [ ] Bracket spacing - Add spaces around brackets when preceded/followed by text
 - [ ] Comma handling - Remove commas from sequential collections, make optional for maps
 - [x] Trailing whitespace removal - Strip whitespace at end of lines
@@ -36,7 +41,7 @@ This document tracks the implementation of formatting rules based on the
 - [ ] Trailing parentheses grouping - Gather closing parens on single line
 
 ## Phase 5: Structural Formatting
-- [ ] Top-level form separation - Single blank line between top-level forms
+- [x] Top-level form separation - Single blank line between top-level forms
 - [ ] Related def grouping - No blank lines between related definitions
 - [ ] Function definition formatting - No blank lines within function bodies
 - [ ] Conditional form formatting - Proper line breaks in `cond`, `case`, etc.
