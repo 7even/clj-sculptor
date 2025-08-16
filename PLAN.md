@@ -19,6 +19,9 @@ This document tracks the implementation of formatting rules based on the
 - [x] Vertical alignment of function arguments - Align multi-line function call arguments
 - [x] Namespace require statement formatting - Fix :require list alignment to match current
       formatting style
+- [x] Namespace collection type normalization - :require uses vectors, :import uses lists
+- [x] Namespace sorting - Alphabetical sorting of :require and :import statements
+- [x] def/defn formatting - def values on separate lines, defn docstrings positioned correctly
 - [ ] Let binding alignment - Vertically align binding pairs in `let` forms
 - [ ] Map key alignment - Align keys in map literals
 - [ ] Special form handling - Implement proper indentation for let, if, when, cond, etc.
@@ -47,7 +50,7 @@ This document tracks the implementation of formatting rules based on the
 - [ ] Conditional form formatting - Proper line breaks in `cond`, `case`, etc.
 
 ## Phase 6: Testing & Validation
-- [ ] Comprehensive test suite - Test each rule individually and in combination
+- [x] Comprehensive test suite - Test each rule individually and in combination
 - [ ] Integration tests - Test with real Clojure codebases
 - [ ] Performance optimization - Ensure formatter is efficient for large files
 
