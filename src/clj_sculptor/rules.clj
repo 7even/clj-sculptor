@@ -50,6 +50,10 @@
   "ns form."
   #{'ns})
 
+(def def-form?
+  "def form."
+  #{'def})
+
 (defn ns-arg?
   "Check if we're an argument to an ns form."
   [zloc]
@@ -179,6 +183,50 @@
       (and leftmost?
            (container-node? parent-tag))
       :after-open-paren
+
+      ;; def form contexts - check these first for priority
+      ;; def docstring - second element in def form that is a string
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)
+                 is-second-elem? (= (z/left zloc)
+                                    (some-> parent z/down z/right))]
+             (and (def-form? parent-first)
+                  is-second-elem?
+                  (string? (z/sexpr zloc)))))
+      :def-docstring
+
+      ;; def value - last element in def form (after var name, possibly after docstring)
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)
+                 left-sibling (z/left zloc)]
+             (and (def-form? parent-first)
+                  (some? left-sibling)
+                  ;; Not the def symbol itself, and not immediately after def
+                  (not= left-sibling (z/down parent)))))
+      :def-value
+
+      ;; defn form contexts
+      ;; defn docstring - element after function name that is a string
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)]
+             (and (defn-form? parent-first)
+                  ;; Check if we're the third element (after defn and fn-name)
+                  ;; by counting non-whitespace siblings to the left
+                  (= (->> (z/left zloc)
+                          (iterate z/left)
+                          (take-while some?)
+                          count)
+                     2)
+                  (string? (z/sexpr zloc)))))
+      :defn-docstring
+
+      ;; defn args vector - comes after defn name or after docstring
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)]
+             (and (defn-form? parent-first)
+                  (= (z/tag zloc)
+                     :vector))))
+      :defn-args-vector
 
       ;; Special handling for :require/:import vectors - check early!
       (and (in-require-form? zloc)
@@ -311,6 +359,29 @@
     (case context
       :after-open-paren
       nil ;; No whitespace after opening paren
+
+      :def-docstring
+      ;; def docstrings go on new line with 2-space indent
+      [(n/newlines 1) (n/spaces 2)]
+
+      :def-value
+      ;; def values always go on new line with 2-space indent
+      [(n/newlines 1) (n/spaces 2)]
+
+      :defn-docstring
+      ;; defn docstrings go on new line with 2-space indent
+      [(n/newlines 1) (n/spaces 2)]
+
+      :defn-args-vector
+      ;; defn args vector positioning depends on whether there's a docstring
+      ;; Check if the immediate left sibling is a string (docstring)
+      (let [left-sibling (z/left zloc)]
+        (if (and (some? left-sibling)
+                 (string? (z/sexpr left-sibling)))
+          ;; If there's a docstring, args go on new line after docstring
+          [(n/newlines 1) (n/spaces 2)]
+          ;; If no docstring, args stay on same line as defn name
+          (n/spaces 1)))
 
       :require-vector-element
       ;; Elements inside require/import vectors get single space

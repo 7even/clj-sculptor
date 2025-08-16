@@ -26,16 +26,18 @@
   (testing "when multiple lines have various amounts of trailing spaces"
     (let [code (lines "  (def x 1)   "
                       "  (def y 2)  ")
-          expected (lines "(def x 1)"
+          expected (lines "(def x"
+                          "  1)"
                           ""
-                          "(def y 2)")
+                          "(def y"
+                          "  2)")
           formatted (core/format-code code)]
       (is (= expected formatted)))))
 
 (deftest test-leading-whitespace-rule
   (testing "when document starts with whitespace"
     (let [code "  (def x 1)"
-          expected "(def x 1)"
+          expected "(def x\n  1)"
           formatted (core/format-code code)]
       (is (= expected formatted)))))
 
@@ -267,7 +269,7 @@
                           "  (+ x"
                           "     1))"
                           ""
-                          "(def config {:key \"value\"})"
+                          "(def config\n  {:key \"value\"})"
                           ""
                           "(defmethod multi-fn :type [{:keys [data]}]"
                           "  (process data))")
@@ -277,9 +279,9 @@
 
   (testing "when multiple forms have inconsistent spacing between them"
     (let [code "(def x 1)   (def y 2)    (defn add [a b] (+ a b))"
-          expected (lines "(def x 1)"
+          expected (lines "(def x\n  1)"
                           ""
-                          "(def y 2)"
+                          "(def y\n  2)"
                           ""
                           "(defn add [a"
                           "           b]"
@@ -293,10 +295,11 @@
     (let [code (str "(def data [{:users [{:name \"Alice\" :roles #{:admin :user}}]} "
                     "{:system {:config {:db {:host \"localhost\"}}}}]) "
                     "(defn simple [input] (process input))")
-          expected (lines "(def data [{:users [{:name \"Alice\""
-                          "                     :roles #{:admin"
-                          "                              :user}}]}"
-                          "           {:system {:config {:db {:host \"localhost\"}}}}])"
+          expected (lines "(def data"
+                          "  [{:users [{:name \"Alice\""
+                          "             :roles #{:admin"
+                          "                      :user}}]}"
+                          "   {:system {:config {:db {:host \"localhost\"}}}}])"
                           ""
                           "(defn simple [input]"
                           "  (process input))")
@@ -458,3 +461,176 @@
           formatted (core/format-code code)]
       (is (= code formatted)
           "Already correct ordering and sorting should be preserved"))))
+
+(deftest test-def-formatting
+  (testing "when def has simple value"
+    (let [code "(def simple-var 42)"
+          expected (lines "(def simple-var"
+                          "  42)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Simple def values should go on separate line")))
+
+  (testing "when def has complex value"
+    (let [code "(def complex-var {:a 1 :b 2})"
+          expected (lines "(def complex-var"
+                          "  {:a 1"
+                          "   :b 2})")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Complex def values should go on separate line and be properly formatted")))
+
+  (testing "when def has docstring and value"
+    (let [code "(def var-with-doc \"Documentation string\" 42)"
+          expected (lines "(def var-with-doc"
+                          "  \"Documentation string\""
+                          "  42)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Def docstring should go on separate line between name and value")))
+
+  (testing "when def has docstring and complex value"
+    (let [code "(def documented-map \"A map with documentation\" {:key :value})"
+          expected (lines "(def documented-map"
+                          "  \"A map with documentation\""
+                          "  {:key :value})")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Def with docstring and complex value should format correctly")))
+
+  (testing "when def has vector value"
+    (let [code "(def my-vector [1 2 3])"
+          expected (lines "(def my-vector"
+                          "  [1"
+                          "   2"
+                          "   3])")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Def with vector value should format vector on separate line")))
+
+  (testing "when def has function value"
+    (let [code "(def my-fn (fn [x] (+ x 1)))"
+          expected (lines "(def my-fn"
+                          "  (fn [x]"
+                          "      (+ x"
+                          "         1)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Def with function value should format function on separate line"))))
+
+(deftest test-defn-formatting
+  (testing "when defn has no docstring"
+    (let [code "(defn simple-fn [x] (+ x 1))"
+          expected (lines "(defn simple-fn [x]"
+                          "  (+ x"
+                          "     1))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Args vector should stay on same line when no docstring")))
+
+  (testing "when defn has docstring"
+    (let [code "(defn documented-fn \"This adds one\" [x] (+ x 1))"
+          expected (lines "(defn documented-fn"
+                          "  \"This adds one\""
+                          "  [x]"
+                          "  (+ x"
+                          "     1))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Docstring should go on next line, args vector after docstring")))
+
+  (testing "when defn has multi-line docstring"
+    (let [code (lines "(defn multi-doc-fn \"Line one"
+                      "Line two\" [x] x)")
+          expected (lines "(defn multi-doc-fn"
+                          "  \"Line one"
+                          "Line two\""
+                          "  [x]"
+                          "  x)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multi-line docstring should be preserved with args on next line")))
+
+  (testing "when defn has multiple args"
+    (let [code "(defn multi-arg [a b c] (+ a b c))"
+          expected (lines "(defn multi-arg [a"
+                          "                 b"
+                          "                 c]"
+                          "  (+ a"
+                          "     b"
+                          "     c))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multiple args should align properly")))
+
+  (testing "when defn has docstring and multiple args"
+    (let [code "(defn doc-multi-arg \"Adds three numbers\" [a b c] (+ a b c))"
+          expected (lines "(defn doc-multi-arg"
+                          "  \"Adds three numbers\""
+                          "  [a"
+                          "   b"
+                          "   c]"
+                          "  (+ a"
+                          "     b"
+                          "     c))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Docstring and multiple args should format correctly")))
+
+  (testing "when defn has destructuring"
+    (let [code "(defn destructure-fn [{:keys [a b]}] (+ a b))"
+          expected (lines "(defn destructure-fn [{:keys [a"
+                          "                              b]}]"
+                          "  (+ a"
+                          "     b))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Destructuring in args should format correctly")))
+
+  (testing "when defn has docstring and destructuring"
+    (let [code "(defn doc-destructure \"Destructures map\" [{:keys [x y]}] (+ x y))"
+          expected (lines "(defn doc-destructure"
+                          "  \"Destructures map\""
+                          "  [{:keys [x"
+                          "           y]}]"
+                          "  (+ x"
+                          "     y))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Docstring with destructuring should format correctly")))
+
+  (testing "when defn has variadic args"
+    (let [code "(defn variadic-fn [a & rest] (apply + a rest))"
+          expected (lines "(defn variadic-fn [a"
+                          "                   &"
+                          "                   rest]"
+                          "  (apply +"
+                          "         a"
+                          "         rest))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Variadic args should format correctly")))
+
+  (testing "when defn has docstring and variadic args"
+    (let [code "(defn doc-variadic \"Sums all args\" [a & rest] (apply + a rest))"
+          expected (lines "(defn doc-variadic"
+                          "  \"Sums all args\""
+                          "  [a"
+                          "   &"
+                          "   rest]"
+                          "  (apply +"
+                          "         a"
+                          "         rest))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Docstring with variadic args should format correctly")))
+
+  (testing "when defn- (private) has docstring"
+    (let [code "(defn- private-fn \"Private function\" [x] x)"
+          expected (lines "(defn- private-fn"
+                          "  \"Private function\""
+                          "  [x]"
+                          "  x)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Private defn with docstring should format like public defn"))))
