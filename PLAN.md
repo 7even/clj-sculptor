@@ -22,7 +22,7 @@ This document tracks the implementation of formatting rules based on the
 - [x] Namespace collection type normalization - :require uses vectors, :import uses lists
 - [x] Namespace sorting - Alphabetical sorting of :require and :import statements
 - [x] def/defn formatting - def values on separate lines, defn docstrings positioned correctly
-- [ ] Let binding alignment - Vertically align binding pairs in `let` forms
+- [ ] Let form indentation - Proper indentation for `let` binding vectors and body
 - [ ] Map key alignment - Align keys in map literals
 - [ ] Special form handling - Implement proper indentation for let, if, when, cond, etc.
 
