@@ -73,6 +73,17 @@
       z/root
       (z/of-node* {:track-position? true})))
 
+(defn in-require-form?
+  "Check if we're inside a :require or :import form."
+  [zloc]
+  (loop [loc zloc]
+    (if-let [parent (z/up loc)]
+      (if (and (= (z/tag parent) :list)
+               (some-> parent z/down z/sexpr require-form?))
+        true
+        (recur parent))
+      false)))
+
 (defn normalize-collection-types
   "Normalize collection types in require/import forms:
    - :require should use vectors [...]
@@ -141,18 +152,6 @@
          (or (and (symbol? first-elem)
                   (not (special-form? first-elem)))
              (keyword? first-elem)))))
-
-(defn in-require-form?
-  "Check if we're inside a :require or :import form."
-  [zloc]
-  (loop [loc zloc]
-    (if-let [parent (z/up loc)]
-      (if (and (= (z/tag parent)
-                  :list)
-               (some-> parent z/down z/sexpr require-form?))
-        true
-        (recur parent))
-      false)))
 
 (defn get-position-context
   "Determine what kind of position we're at for whitespace generation.
