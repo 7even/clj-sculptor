@@ -634,3 +634,113 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Private defn with docstring should format like public defn"))))
+
+(deftest test-let-formatting
+  (testing "when let has simple bindings"
+    (let [code "(let [x 1 y 2] (+ x y))"
+          expected (lines "(let [x 1"
+                          "      y 2]"
+                          "  (+ x"
+                          "     y))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Simple let bindings should align properly")))
+  (testing "when let has complex binding values"
+    (let [code (str "(let [users (get-users) filtered-users (filter active? users)] "
+                    "(count filtered-users))")
+          expected (lines "(let [users (get-users)"
+                          "      filtered-users (filter active?"
+                          "                             users)]"
+                          "  (count filtered-users))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Complex binding values should format with proper alignment")))
+  (testing "when let has multiple body expressions"
+    (let [code "(let [x 1 y 2] (println x) (println y) (+ x y))"
+          expected (lines "(let [x 1"
+                          "      y 2]"
+                          "  (println x)"
+                          "  (println y)"
+                          "  (+ x"
+                          "     y))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multiple let body expressions should align consistently")))
+  (testing "when let is nested inside another let"
+    (let [code "(let [x 1] (let [y (+ x 1)] (+ x y)))"
+          expected (lines "(let [x 1]"
+                          "  (let [y (+ x"
+                          "             1)]"
+                          "    (+ x"
+                          "       y)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Nested let forms should maintain proper indentation")))
+  (testing "when let has destructuring bindings"
+    (let [code "(let [{:keys [a b]} data [x y] coords] (+ a b x y))"
+          expected (lines "(let [{:keys [a"
+                          "              b]} data"
+                          "      [x"
+                          "       y] coords]"
+                          "  (+ a"
+                          "     b"
+                          "     x"
+                          "     y))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Destructuring bindings should format with proper alignment")))
+  (testing "when let bindings contain function calls"
+    (let [code (str "(let [result (calculate-value arg1 arg2) processed "
+                    "(transform result)] processed)")
+          expected (lines "(let [result (calculate-value arg1"
+                          "                              arg2)"
+                          "      processed (transform result)]"
+                          "  processed)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Function calls in bindings should align properly")))
+  (testing "when let is inside a function definition"
+    (let [code (str "(defn process-data [input] (let [cleaned (clean input) "
+                    "validated (validate cleaned)] validated))")
+          expected (lines "(defn process-data [input]"
+                          "  (let [cleaned (clean input)"
+                          "        validated (validate cleaned)]"
+                          "    validated))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Let inside function should maintain proper relative indentation")))
+  (testing "when let has single binding pair"
+    (let [code "(let [x 42] x)"
+          expected (lines "(let [x 42]"
+                          "  x)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Single binding pair should format correctly")))
+  (testing "when let bindings span multiple lines"
+    (let [code (lines "(let [data (fetch-data"
+                      "             {:url \"http://api.example.com\""
+                      "              :params {:limit 100}})"
+                      "      result (process data)]"
+                      "  result)")
+          expected (lines "(let [data (fetch-data {:url \"http://api.example.com\""
+                          "                        :params {:limit 100}})"
+                          "      result (process data)]"
+                          "  result)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multi-line binding values should format properly")))
+  (testing "when let has many binding pairs"
+    (let [code "(let [a 1 b 2 c 3 d 4 e 5] (+ a b c d e))"
+          expected (lines "(let [a 1"
+                          "      b 2"
+                          "      c 3"
+                          "      d 4"
+                          "      e 5]"
+                          "  (+ a"
+                          "     b"
+                          "     c"
+                          "     d"
+                          "     e))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Many binding pairs should maintain consistent alignment"))))
