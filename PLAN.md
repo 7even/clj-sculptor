@@ -17,7 +17,7 @@ This document tracks the implementation of formatting rules based on the
 - [x] Position-based alignment for collection elements - Align with first element position
 - [x] Newline indentation insertion - Insert proper indentation after newlines when missing
 - [x] Vertical alignment of function arguments - Align multi-line function call arguments
-- [ ] Namespace require statement formatting - Fix :require list alignment to match current
+- [x] Namespace require statement formatting - Fix :require list alignment to match current
       formatting style
 - [ ] Let binding alignment - Vertically align binding pairs in `let` forms
 - [ ] Map key alignment - Align keys in map literals

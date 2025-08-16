@@ -7,6 +7,8 @@
   [code-str]
   (-> code-str
       (z/of-string {:track-position? true})
+      rules/normalize-collection-types
+      rules/sort-ns-forms
       rules/strip-whitespace
       rules/insert-whitespace
       z/root-string))

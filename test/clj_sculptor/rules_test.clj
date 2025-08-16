@@ -303,3 +303,158 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Complex nested structures in multiple forms should maintain proper alignment"))))
+
+(deftest test-require-formatting
+  (testing "when ns form has single require"
+    (let [code "(ns example (:require [clojure.string :as str]))"
+          expected (lines "(ns example"
+                          "  (:require [clojure.string :as str]))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Single require should be formatted with proper indentation")))
+  (testing "when ns form has multiple requires"
+    (let [code (str "(ns example (:require [clojure.string :as str] "
+                    "[clojure.set :as set] [clojure.walk :as walk]))")
+          expected (lines "(ns example"
+                          "  (:require [clojure.set :as set]"
+                          "            [clojure.string :as str]"
+                          "            [clojure.walk :as walk]))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          (str "Multiple requires should align like function arguments "
+               "and be sorted alphabetically"))))
+  (testing "when require list spans multiple lines"
+    (let [code (lines "(ns example"
+                      "  (:require [clojure.string :as str]"
+                      "            [clojure.set :as set]))")
+          formatted (core/format-code code)]
+      (is (= (lines "(ns example"
+                    "  (:require [clojure.set :as set]"
+                    "            [clojure.string :as str]))")
+             formatted)
+          "Multi-line require should maintain alignment and be sorted alphabetically"))))
+
+(deftest test-import-formatting
+  (testing "when ns form has single import"
+    (let [code "(ns example (:import (java.util Date)))"
+          expected (lines "(ns example"
+                          "  (:import (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Single import should be formatted with proper indentation")))
+  (testing "when ns form has multiple imports"
+    (let [code "(ns example (:import (java.util Date Calendar) (java.io File FileReader)))"
+          expected (lines "(ns example"
+                          "  (:import (java.io File FileReader)"
+                          "           (java.util Date Calendar)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          (str "Multiple import lists should align like function arguments "
+               "and be sorted alphabetically"))))
+  (testing "when import uses list with multiple classes"
+    (let [code "(ns example (:import (java.util Date Calendar TimeZone)))"
+          expected (lines "(ns example"
+                          "  (:import (java.util Date Calendar TimeZone)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Import list with multiple classes should maintain proper formatting")))
+  (testing "when ns has require with multiple entries and import"
+    (let [code (str "(ns example (:require [clojure.string :as str] [clojure.set :as set]) "
+                    "(:import (java.util Date) (java.io File)))")
+          expected (lines "(ns example"
+                          "  (:require [clojure.set :as set]"
+                          "            [clojure.string :as str])"
+                          "  (:import (java.io File)"
+                          "           (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          (str "Multiple requires and imports should align within their respective forms "
+               "and be sorted alphabetically")))))
+
+(deftest test-collection-type-normalization
+  (testing "when :require uses wrong list syntax"
+    (let [code "(ns example (:require (clojure.string :as str)))"
+          expected (lines "(ns example"
+                          "  (:require [clojure.string :as str]))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Lists in :require should be converted to vectors")))
+  (testing "when :import uses wrong vector syntax"
+    (let [code "(ns example (:import [java.util Date]))"
+          expected (lines "(ns example"
+                          "  (:import (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Vectors in :import should be converted to lists")))
+  (testing "when both :require and :import use wrong syntax"
+    (let [code "(ns example (:require (clojure.string :as str)) (:import [java.util Date]))"
+          expected (lines "(ns example"
+                          "  (:require [clojure.string :as str])"
+                          "  (:import (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Both wrong syntaxes should be corrected simultaneously")))
+  (testing "when multiple require lists need conversion"
+    (let [code "(ns example (:require (clojure.string :as str) (clojure.set :as set)))"
+          expected (lines "(ns example"
+                          "  (:require [clojure.set :as set]"
+                          "            [clojure.string :as str]))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          (str "Multiple lists in :require should all be converted to vectors "
+               "and sorted alphabetically"))))
+  (testing "when multiple import vectors need conversion"
+    (let [code "(ns example (:import [java.util Date] [java.io File]))"
+          expected (lines "(ns example"
+                          "  (:import (java.io File)"
+                          "           (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          (str "Multiple vectors in :import should all be converted to lists "
+               "and sorted alphabetically")))))
+
+(deftest test-namespace-ordering
+  (testing "when :import comes before :require"
+    (let [code "(ns example (:import (java.util Date)) (:require [clojure.string :as str]))"
+          expected (lines "(ns example"
+                          "  (:require [clojure.string :as str])"
+                          "  (:import (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          ":require should come before :import")))
+  (testing "when namespaces are not sorted alphabetically in :require"
+    (let [code "(ns example (:require [clojure.string :as str] [clojure.core :as core]))"
+          expected (lines "(ns example"
+                          "  (:require [clojure.core :as core]"
+                          "            [clojure.string :as str]))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Namespaces in :require should be sorted alphabetically")))
+  (testing "when namespaces are not sorted alphabetically in :import"
+    (let [code "(ns example (:import (java.util Date) (java.io File)))"
+          expected (lines "(ns example"
+                          "  (:import (java.io File)"
+                          "           (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Import specs should be sorted alphabetically")))
+  (testing "when both ordering and sorting are needed"
+    (let [code (str "(ns example (:import (java.util Date) (java.io File)) "
+                    "(:require [clojure.string :as str] [clojure.core :as core]))")
+          expected (lines "(ns example"
+                          "  (:require [clojure.core :as core]"
+                          "            [clojure.string :as str])"
+                          "  (:import (java.io File)"
+                          "           (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Should reorder and sort both :require and :import")))
+  (testing "when namespace already correctly ordered and sorted"
+    (let [code (lines "(ns example"
+                      "  (:require [clojure.core :as core]"
+                      "            [clojure.string :as str])"
+                      "  (:import (java.io File)"
+                      "           (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= code formatted)
+          "Already correct ordering and sorting should be preserved"))))

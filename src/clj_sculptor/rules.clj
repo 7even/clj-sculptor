@@ -11,7 +11,7 @@
   "Special forms that have their own formatting rules."
   #{'let 'if 'when 'cond 'case 'for 'doseq 'dotimes
     'defn 'defn- 'def 'defmacro 'defmethod 'defmulti
-    'ns 'require 'import 'use})
+    'require 'import 'use})
 
 ;; Predicate sets for node type classification
 (def collection-node?
@@ -46,22 +46,77 @@
   "if form."
   #{'if})
 
+(def ns-form?
+  "ns form."
+  #{'ns})
+
+(defn ns-arg?
+  "Check if we're an argument to an ns form."
+  [zloc]
+  (let [parent (z/up zloc)]
+    (and (some? parent)
+         (= (z/tag parent)
+            :list)
+         (some-> parent z/down z/sexpr ns-form?))))
+
+(def require-form?
+  "require and import forms in ns declaration."
+  #{:require :import})
+
 ;; -----------------------------------------------------------------------------
 ;; Phase 1: Strip all whitespace and newlines
+
+(defn- to-leftmost-at-root
+  "Navigate to the leftmost position at the top level of the tree."
+  [zloc]
+  (-> zloc
+      z/root
+      (z/of-node* {:track-position? true})))
+
+(defn normalize-collection-types
+  "Normalize collection types in require/import forms:
+   - :require should use vectors [...]
+   - :import should use lists (...)"
+  [zloc]
+  (let [start-loc (to-leftmost-at-root zloc)]
+    (loop [loc start-loc]
+      (let [parent (z/up loc)
+            parent-tag (when (some? parent)
+                         (z/tag parent))
+            require-type (some-> parent z/up z/down z/sexpr)]
+        (cond
+          (z/end? loc)
+          ;; Create a new zipper from the modified tree
+          (z/of-node (z/root loc) {:track-position? true})
+
+          ;; Lists in :require should become vectors
+          (and (in-require-form? loc)
+               (= require-type :require)
+               (= parent-tag :list)
+               ;; Don't convert the :require list itself, only sublists
+               (not= (some-> parent z/down z/sexpr) :require))
+          (let [required-namespaces (z/child-sexprs parent)
+                vector-node (n/vector-node (map n/token-node required-namespaces))
+                new-loc (z/replace parent vector-node)]
+            (recur new-loc))
+
+          ;; Vectors in :import should become lists
+          (and (in-require-form? loc)
+               (= require-type :import)
+               (= parent-tag :vector))
+          (let [imported-namespaces (z/child-sexprs parent)
+                list-node (n/list-node (map n/token-node imported-namespaces))
+                new-loc (z/replace parent list-node)]
+            (recur new-loc))
+
+          :else
+          (recur (z/next* loc)))))))
 
 (defn strip-whitespace
   "Remove all whitespace, newline, and comma nodes from the zipper.
    Returns a zipper positioned at the beginning of the cleaned tree."
   [zloc]
-  ;; First, navigate to the absolute beginning (leftmost at top level)
-  (let [start-loc (loop [loc zloc]
-                    (if-let [up (z/up loc)]
-                      (recur up)
-                      ;; At top, go to leftmost
-                      (loop [l loc]
-                        (if-let [left (z/left* l)]
-                          (recur left)
-                          l))))]
+  (let [start-loc (to-leftmost-at-root zloc)]
     (loop [loc start-loc]
       (cond
         (z/end? loc)
@@ -78,11 +133,26 @@
 ;; Phase 2: Context detection helpers
 
 (defn function-call?
-  "Check if a list represents a function call (not a special form)."
+  "Check if a list represents a function call or function-like form (not a special form)."
   [zloc]
-  (and (= (z/tag zloc) :list)
-       (some-> zloc z/down z/sexpr symbol?)
-       (not (special-form? (some-> zloc z/down z/sexpr)))))
+  (and (= (z/tag zloc)
+          :list)
+       (let [first-elem (some-> zloc z/down z/sexpr)]
+         (or (and (symbol? first-elem)
+                  (not (special-form? first-elem)))
+             (keyword? first-elem)))))
+
+(defn in-require-form?
+  "Check if we're inside a :require or :import form."
+  [zloc]
+  (loop [loc zloc]
+    (if-let [parent (z/up loc)]
+      (if (and (= (z/tag parent)
+                  :list)
+               (some-> parent z/down z/sexpr require-form?))
+        true
+        (recur parent))
+      false)))
 
 (defn get-position-context
   "Determine what kind of position we're at for whitespace generation.
@@ -96,7 +166,9 @@
    - :after-defn-args
    - :after-defmethod-args
    - :after-let-bindings
-   - :if-clause"
+   - :if-clause
+   - :require-vector-element
+   - :ns-arg"
   [zloc]
   (let [tag (z/tag zloc)
         parent (z/up zloc)
@@ -109,9 +181,35 @@
            (container-node? parent-tag))
       :after-open-paren
 
+      ;; Special handling for :require/:import vectors - check early!
+      (and (in-require-form? zloc)
+           (= parent-tag :vector)
+           (not leftmost?))
+      :require-vector-element
+
+      ;; Special handling for import lists (java.util Date Calendar)
+      ;; These are lists inside :import forms, treat like vectors
+      (and (in-require-form? zloc)
+           (= parent-tag :list)
+           (not leftmost?)
+           ;; Check if parent list's first element is a package symbol (not :import)
+           (let [first-elem (some-> parent z/down z/sexpr)]
+             (and (symbol? first-elem)
+                  (not (require-form? first-elem)))))
+      :require-vector-element
+
+      ;; NS form arguments (except first) get special 2-space indentation
+      (and (ns-arg? zloc)
+           (not leftmost?)
+           ;; Not the first argument (namespace name)
+           (not (= (z/left zloc)
+                   (-> zloc z/up z/down))))
+      :ns-arg
+
       ;; Function arguments (check before other list handling)
       (and (function-call? parent)
-           (= (z/left zloc) (z/down parent)))
+           (= (z/left zloc)
+              (z/down parent)))
       :first-function-arg
 
       (function-call? parent)
@@ -215,6 +313,14 @@
       :after-open-paren
       nil ;; No whitespace after opening paren
 
+      :require-vector-element
+      ;; Elements inside require/import vectors get single space
+      (n/spaces 1)
+
+      :ns-arg
+      ;; NS form arguments get newline and 2-space indentation
+      [(n/newlines 1) (n/spaces 2)]
+
       :first-function-arg
       (n/spaces 1) ;; Single space after function name
 
@@ -305,3 +411,80 @@
             ;; Handle single whitespace node
             (recur (z/next* (z/insert-left* loc whitespace))))
           (recur (z/next* loc)))))))
+
+;; -----------------------------------------------------------------------------
+;; Namespace ordering functions
+
+(defn sort-require-form
+  "Sort namespaces alphabetically within a :require form."
+  [form-node]
+  (if (and (= (n/tag form-node)
+              :list)
+           (= (some-> form-node n/children first n/sexpr)
+              :require))
+    (let [children (n/children form-node)
+          [keyword & ns-specs] children
+          non-whitespace-specs (filter #(not (whitespace? (n/tag %)))
+                                       ns-specs)
+          sorted-ns-specs (sort-by #(if (= (n/tag %)
+                                           :list)
+                                      (str (some-> % n/children first n/sexpr))
+                                      (str (n/sexpr %)))
+                                   non-whitespace-specs)]
+      (n/list-node (cons keyword sorted-ns-specs)))
+    form-node))
+
+(defn sort-import-form
+  "Sort import specs alphabetically within an :import form."
+  [form-node]
+  (if (and (= (n/tag form-node)
+              :list)
+           (= (some-> form-node n/children first n/sexpr)
+              :import))
+    (let [children (n/children form-node)
+          [keyword & import-specs] children
+          non-whitespace-specs (filter #(not (whitespace? (n/tag %)))
+                                       import-specs)
+          sorted-import-specs (sort-by #(if (= (n/tag %)
+                                               :list)
+                                          (str (some-> % n/children first n/sexpr))
+                                          (str (n/sexpr %)))
+                                       non-whitespace-specs)]
+      (n/list-node (cons keyword sorted-import-specs)))
+    form-node))
+
+(defn sort-ns-forms
+  "Sort :require and :import forms in ns declaration, putting :require first."
+  [zloc]
+  (if (and (= (z/tag zloc)
+              :list)
+           (= (some-> zloc z/down z/sexpr)
+              'ns))
+    (let [forms (-> zloc z/node n/children)
+          non-ns-forms (filter #(not (and (= (n/tag %)
+                                             :list)
+                                          (let [first-sym (some-> % n/children first n/sexpr)]
+                                            (or (= first-sym
+                                                   :require)
+                                                (= first-sym
+                                                   :import)))))
+                               forms)
+          ns-forms (filter #(and (= (n/tag %)
+                                    :list)
+                                 (let [first-sym (some-> % n/children first n/sexpr)]
+                                   (or (= first-sym
+                                          :require)
+                                       (= first-sym
+                                          :import))))
+                           forms)
+          requires (filter #(= (some-> % n/children first n/sexpr)
+                               :require)
+                           ns-forms)
+          imports (filter #(= (some-> % n/children first n/sexpr)
+                              :import)
+                          ns-forms)
+          sorted-requires (map sort-require-form requires)
+          sorted-imports (map sort-import-form imports)
+          ordered-forms (concat non-ns-forms sorted-requires sorted-imports)]
+      (z/replace zloc (n/list-node ordered-forms)))
+    zloc))

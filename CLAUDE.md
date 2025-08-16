@@ -14,6 +14,7 @@ an AST enriched with comments, then generating formatted code using predefined f
 ## Code Style Guidelines
 - **Comparisons**: When comparing unknown value with constant, put constant second:
   `(= unknown-value :constant)` not `(= :constant unknown-value)`
+  - Exception: In test assertions, use `(= expected actual)` order for clarity
 
 ## Test Guidelines
 - **Tests**: Use `(testing "when condition" ...)` not `(testing "returns result" ...)`
