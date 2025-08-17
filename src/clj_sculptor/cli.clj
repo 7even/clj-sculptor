@@ -26,7 +26,12 @@
       (let [input-content (slurp (:input options))
             formatted (core/format-code input-content)]
         (if (:output options)
-          (spit (:output options) formatted)
+          (spit (:output options)
+                (cond-> formatted
+                  (and (:output options)
+                       (seq formatted)
+                       (not= (last formatted) \newline))
+                  (str "\n")))
           (println formatted)))
 
       :else

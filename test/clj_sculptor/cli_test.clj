@@ -29,7 +29,7 @@
       (try
         (spit input-file test-code)
         (cli/-main "-i" (.getPath input-file) "-o" (.getPath output-file))
-        (is (= "(def x\n  1)"
+        (is (= "(def x\n  1)\n"
                (slurp output-file)))
         (finally
           (.delete input-file)
