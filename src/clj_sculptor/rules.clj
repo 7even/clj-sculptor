@@ -9,7 +9,8 @@
 
 (def special-form?
   "Special forms that have their own formatting rules."
-  #{'let 'if 'when 'cond 'case 'for 'doseq 'dotimes 'loop
+  #{'let 'if 'when 'when-not 'when-first 'if-not
+    'cond 'case 'for 'doseq 'dotimes 'loop
     'binding 'with-open 'if-let 'when-let 'if-some 'when-some
     'defn 'defn- 'def 'defmacro 'defmethod 'defmulti
     'require 'import 'use})
@@ -44,9 +45,9 @@
   #{'let 'for 'doseq 'loop 'binding 'with-open 'dotimes
     'if-let 'when-let 'if-some 'when-some})
 
-(def if-form?
-  "if form."
-  #{'if})
+(def conditional-form?
+  "Conditional forms with test/body structure."
+  #{'if 'when 'when-not 'when-first 'when-some 'if-not})
 
 (def ns-form?
   "ns form."
@@ -342,15 +343,15 @@
                           :else (recur (z/left curr))))))))
       :after-bindings
 
-      ;; If statement clauses - check if this is a then/else clause after condition
+      ;; Conditional form clauses - check if this is a then/else/body clause after condition
       (and parent
            (= parent-tag
               :list)
            (let [parent-first (some-> parent z/down z/sexpr)]
-             (and (if-form? parent-first)
+             (and (conditional-form? parent-first)
                   ;; Check if we're not the condition (first argument)
                   (not= (z/left zloc) (z/down parent)))))
-      :if-clause
+      :conditional-clause
 
       ;; Map values (every even position in map after first, counting only non-whitespace)
       (and (= parent-tag
@@ -477,9 +478,10 @@
         ;; Column is 1-based, so form at column 1 should give 2-space indent
         [(n/newlines 1) (n/spaces binding-form-col)])
 
-      :if-clause
-      ;; If then/else clauses get newline and 4-space indent (2 + 2 for if body)
-      [(n/newlines 1) (n/spaces 4)]
+      :conditional-clause
+      ;; Conditional form clauses get newline and 2-space indent from the form
+      (let [conditional-form-col (-> parent z/down z/position second)]
+        [(n/newlines 1) (n/spaces conditional-form-col)])
 
       :map-value
       ;; Map values get a single space after the key

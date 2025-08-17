@@ -826,3 +826,68 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Dotimes should format with proper body indentation"))))
+
+(deftest test-conditional-forms
+  (testing "when if has simple condition and clauses"
+    (let [code "(if (> x 0) \"positive\" \"negative\")"
+          expected (lines "(if (> x"
+                          "       0)"
+                          "  \"positive\""
+                          "  \"negative\")")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "If clauses should indent 2 spaces from the if form")))
+
+  (testing "when when has multiple body expressions"
+    (let [code "(when (> x 0) (println x) (inc x) (process x))"
+          expected (lines "(when (> x"
+                          "         0)"
+                          "  (println x)"
+                          "  (inc x)"
+                          "  (process x))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "When body expressions should each be on separate lines with 2-space indent")))
+
+  (testing "when when-not has condition and body"
+    (let [code "(when-not (empty? coll) (println \"not empty\") (process coll))"
+          expected (lines "(when-not (empty? coll)"
+                          "  (println \"not empty\")"
+                          "  (process coll))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "When-not should format like when")))
+
+  (testing "when if-not has condition and clauses"
+    (let [code "(if-not (zero? x) (process x) (handle-zero))"
+          expected (lines "(if-not (zero? x)"
+                          "  (process x)"
+                          "  (handle-zero))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "If-not should format like if")))
+
+  (testing "when conditionals are nested"
+    (let [code (str "(when (> x 0) (if (even? x) (println \"positive even\") "
+                    "(println \"positive odd\")))")
+          expected (lines "(when (> x"
+                          "         0)"
+                          "  (if (even? x)"
+                          "    (println \"positive even\")"
+                          "    (println \"positive odd\")))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Nested conditionals should maintain proper relative indentation")))
+
+  (testing "when conditional has complex condition"
+    (let [code "(if (and (pos? x) (< x 100) (not (zero? (mod x 3)))) (process x) (skip x))"
+          expected (lines "(if (and (pos? x)"
+                          "         (< x"
+                          "            100)"
+                          "         (not (zero? (mod x"
+                          "                          3))))"
+                          "  (process x)"
+                          "  (skip x))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Complex conditions should format with proper alignment"))))
