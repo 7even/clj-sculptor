@@ -23,7 +23,7 @@ This document tracks the implementation of formatting rules based on the
 - [x] Namespace sorting - Alphabetical sorting of :require and :import statements
 - [x] def/defn formatting - def values on separate lines, defn docstrings positioned correctly
 - [x] Let form indentation - Proper indentation for `let` binding vectors and body
-- [ ] Map key alignment - Align keys in map literals
+- [x] Map key alignment - Each key-value pair on separate line, keys in single column
 - [ ] Special form handling - Implement proper indentation for let, if, when, cond, etc.
 
 ## Phase 3: Spacing & Whitespace Rules
@@ -32,7 +32,7 @@ This document tracks the implementation of formatting rules based on the
 - [x] Strip-and-generate approach - Implement two-phase whitespace handling for clean formatting
 - [x] Collection formatting consistency - Unified formatting for vectors, maps, and sets
 - [ ] Bracket spacing - Add spaces around brackets when preceded/followed by text
-- [ ] Comma handling - Remove commas from sequential collections, make optional for maps
+- [x] Comma handling - Remove commas from sequential collections, make optional for maps
 - [x] Trailing whitespace removal - Strip whitespace at end of lines
 - [x] Leading whitespace removal - Remove whitespace at document start
 - [x] Single space normalization - Ensure single spaces between elements
