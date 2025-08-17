@@ -13,6 +13,7 @@
     'cond 'case 'for 'doseq 'dotimes 'loop
     'binding 'with-open 'if-let 'when-let 'if-some 'when-some
     'defn 'defn- 'def 'defmacro 'defmethod 'defmulti
+    'try 'catch 'finally
     'require 'import 'use})
 
 ;; Predicate sets for node type classification
@@ -60,6 +61,10 @@
 (def def-form?
   "def form."
   #{'def})
+
+(def try-form?
+  "try form."
+  #{'try})
 
 (defn ns-arg?
   "Check if we're an argument to an ns form."
@@ -204,7 +209,10 @@
    - :require-vector-element
    - :ns-arg
    - :pair-test
-   - :pair-result"
+   - :pair-result
+   - :try-body
+   - :catch-clause
+   - :finally-clause"
   [zloc]
   (let [tag (z/tag zloc)
         parent (z/up zloc)
@@ -373,6 +381,57 @@
            (not (= (z/left zloc)
                    (-> zloc z/up z/down))))
       :ns-arg
+
+      ;; try form contexts
+      ;; try body - expressions after try keyword
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)]
+             (and (try-form? parent-first)
+                  (not leftmost?)
+                  ;; Check if this is not a catch or finally clause
+                  (not (and (= (z/tag zloc) :list)
+                            (contains? #{'catch 'finally}
+                                       (some-> zloc z/down z/sexpr)))))))
+      :try-body
+
+      ;; catch clause - (catch ExceptionType var ...)
+      (and (= parent-tag :list)
+           (= (z/tag zloc) :list)
+           (let [parent-first (some-> parent z/down z/sexpr)
+                 zloc-first (some-> zloc z/down z/sexpr)]
+             (and (try-form? parent-first)
+                  (= zloc-first 'catch))))
+      :catch-clause
+
+      ;; finally clause - (finally ...)
+      (and (= parent-tag :list)
+           (= (z/tag zloc) :list)
+           (let [parent-first (some-> parent z/down z/sexpr)
+                 zloc-first (some-> zloc z/down z/sexpr)]
+             (and (try-form? parent-first)
+                  (= zloc-first 'finally))))
+      :finally-clause
+
+      ;; Elements inside catch clauses (after catch ExceptionType var)
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)]
+             (and (= parent-first 'catch)
+                  (not leftmost?)
+                  ;; Skip the catch, exception type, and variable - body starts at position 3
+                  (let [pos (some-> parent
+                                    z/down
+                                    z/right
+                                    (count-non-whitespace-siblings zloc))]
+                    (and (some? pos)
+                         (>= pos 2))))))
+      :catch-body
+
+      ;; Elements inside finally clauses (after finally)
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)]
+             (and (= parent-first 'finally)
+                  (not leftmost?))))
+      :finally-body
 
       ;; Function arguments (check before other list handling)
       ;; Special handling for condp predicate and expression arguments
@@ -575,6 +634,29 @@
       :ns-arg
       ;; NS form arguments get newline and 2-space indentation
       [(n/newlines 1) (n/spaces 2)]
+
+      :try-body
+      ;; try body expressions get newline and 2-space indent from try
+      (let [try-form-col (-> parent z/down z/position second)]
+        [(n/newlines 1) (n/spaces try-form-col)])
+
+      :catch-clause
+      ;; catch clauses align with try body (2 spaces from try)
+      [(n/newlines 1) (n/spaces 2)]
+
+      :finally-clause
+      ;; finally clause aligns with try body (2 spaces from try)
+      [(n/newlines 1) (n/spaces 2)]
+
+      :catch-body
+      ;; catch body expressions get newline and 2-space indent from catch
+      (let [catch-col (-> parent z/down z/position second)]
+        [(n/newlines 1) (n/spaces (+ catch-col 2))])
+
+      :finally-body
+      ;; finally body expressions get newline and 2-space indent from finally
+      (let [finally-col (-> parent z/down z/position second)]
+        [(n/newlines 1) (n/spaces (+ finally-col 2))])
 
       :first-function-arg
       (n/spaces 1) ;; Single space after function name

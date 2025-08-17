@@ -994,3 +994,42 @@
                           "  (take 10))")
           formatted (core/format-code code)]
       (is (= expected formatted)))))
+
+(deftest test-try-catch-finally-formatting
+  (testing "when try has simple body with catch"
+    (let [code "(try (do-something) (catch Exception e (handle-error e)))"
+          expected (lines "(try"
+                          "  (do-something)"
+                          "  (catch Exception e"
+                          "    (handle-error e)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when try has multiple expressions with finally"
+    (let [code "(try (open-resource) (process-data) (finally (cleanup)))"
+          expected (lines "(try"
+                          "  (open-resource)"
+                          "  (process-data)"
+                          "  (finally"
+                          "    (cleanup)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when try has catch and finally"
+    (let [code "(try (risky-operation) (catch IOException e (log e)) (finally (close-resource)))"
+          expected (lines "(try"
+                          "  (risky-operation)"
+                          "  (catch IOException e"
+                          "    (log e))"
+                          "  (finally"
+                          "    (close-resource)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when try has multiple catch clauses"
+    (let [code "(try (operation) (catch IOException e1 (handle-io e1)) (catch SQLException e2 (handle-sql e2)))"
+          expected (lines "(try"
+                          "  (operation)"
+                          "  (catch IOException e1"
+                          "    (handle-io e1))"
+                          "  (catch SQLException e2"
+                          "    (handle-sql e2)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
