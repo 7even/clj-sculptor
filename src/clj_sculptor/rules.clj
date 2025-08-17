@@ -9,7 +9,8 @@
 
 (def special-form?
   "Special forms that have their own formatting rules."
-  #{'let 'if 'when 'cond 'case 'for 'doseq 'dotimes
+  #{'let 'if 'when 'cond 'case 'for 'doseq 'dotimes 'loop
+    'binding 'with-open 'if-let 'when-let 'if-some 'when-some
     'defn 'defn- 'def 'defmacro 'defmethod 'defmulti
     'require 'import 'use})
 
@@ -38,9 +39,10 @@
   "defmethod form."
   #{'defmethod})
 
-(def let-form?
-  "let form."
-  #{'let})
+(def binding-form?
+  "Forms with let-like binding vectors."
+  #{'let 'for 'doseq 'loop 'binding 'with-open 'dotimes
+    'if-let 'when-let 'if-some 'when-some})
 
 (def if-form?
   "if form."
@@ -228,13 +230,13 @@
                      :vector))))
       :defn-args-vector
 
-      ;; Let binding vector contexts
-      ;; let binding name - even positions (0, 2, 4...) in let binding vectors
+      ;; Binding vector contexts
+      ;; binding name - even positions (0, 2, 4...) in binding vectors
       (and (= parent-tag :vector)
            (let [grandparent (z/up parent)]
              (and (= (z/tag grandparent)
                      :list)
-                  (let-form? (some-> grandparent z/down z/sexpr))
+                  (binding-form? (some-> grandparent z/down z/sexpr))
                   (not leftmost?)
                   ;; Check if this is an even position (binding name)
                   (let [pos (loop [curr (z/leftmost zloc)
@@ -246,14 +248,14 @@
                                          (inc count)))))]
                     (and (some? pos)
                          (even? pos))))))
-      :let-binding-name
+      :binding-name
 
-      ;; let binding value - odd positions (1, 3, 5...) in let binding vectors
+      ;; binding value - odd positions (1, 3, 5...) in binding vectors
       (and (= parent-tag :vector)
            (let [grandparent (z/up parent)]
              (and (= (z/tag grandparent)
                      :list)
-                  (let-form? (some-> grandparent z/down z/sexpr))
+                  (binding-form? (some-> grandparent z/down z/sexpr))
                   (not leftmost?)
                   ;; Check if this is an odd position (binding value)
                   (let [pos (loop [curr (z/leftmost zloc)
@@ -265,7 +267,7 @@
                                          (inc count)))))]
                     (and (some? pos)
                          (odd? pos))))))
-      :let-binding-value
+      :binding-value
 
       ;; Special handling for :require/:import vectors - check early!
       (and (in-require-form? zloc)
@@ -323,14 +325,14 @@
                      :vector))))
       :after-defmethod-args
 
-      ;; After let bindings vector or subsequent let body expressions
+      ;; After binding vector or subsequent binding form body expressions
       (and parent
            (= parent-tag
               :list)
            (let [parent-first (some-> parent z/down z/sexpr)]
-             (and (let-form? parent-first)
+             (and (binding-form? parent-first)
                   ;; Check if previous sibling is a vector (bindings) OR
-                  ;; we're a subsequent expression in let body
+                  ;; we're a subsequent expression in binding form body
                   (or (= (some-> zloc z/left z/tag) :vector)
                       ;; Check if any earlier sibling is the binding vector
                       (loop [curr (z/left zloc)]
@@ -338,7 +340,7 @@
                           (nil? curr) false
                           (= (z/tag curr) :vector) true ; Found binding vector
                           :else (recur (z/left curr))))))))
-      :after-let-bindings
+      :after-bindings
 
       ;; If statement clauses - check if this is a then/else clause after condition
       (and parent
@@ -419,16 +421,16 @@
           ;; If no docstring, args stay on same line as defn name
           (n/spaces 1)))
 
-      :let-binding-name
-      ;; Let binding names (except first) get newline and align with first binding name
+      :binding-name
+      ;; Binding names (except first) get newline and align with first binding name
       ;; Find the first binding name position and align with it
       (let [binding-vector (z/up zloc) ; parent is the binding vector
             first-binding (z/down binding-vector) ; first element in vector
             first-binding-col (-> first-binding z/position second)]
         [(n/newlines 1) (n/spaces (dec first-binding-col))])
 
-      :let-binding-value
-      ;; Let binding values get single space after binding name
+      :binding-value
+      ;; Binding values get single space after binding name
       (n/spaces 1)
 
       :require-vector-element
@@ -467,11 +469,13 @@
                      2)] ;; 2 spaces normally
         [(n/newlines 1) (n/spaces indent)])
 
-      :after-let-bindings
-      ;; Newline and 2-space indent relative to the containing let
-      (let [let-symbol (z/down parent) ; parent is the let list, down gets 'let symbol
-            let-col (-> let-symbol z/position second)]
-        [(n/newlines 1) (n/spaces let-col)])
+      :after-bindings
+      ;; Newline and indent relative to the containing binding form
+      ;; Calculate proper indentation based on the binding form's position
+      (let [binding-form-col (-> parent z/down z/position second)]
+        ;; Indent 2 spaces from the start of the binding form
+        ;; Column is 1-based, so form at column 1 should give 2-space indent
+        [(n/newlines 1) (n/spaces binding-form-col)])
 
       :if-clause
       ;; If then/else clauses get newline and 4-space indent (2 + 2 for if body)

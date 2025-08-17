@@ -744,3 +744,85 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Many binding pairs should maintain consistent alignment"))))
+
+(deftest test-binding-forms
+  (testing "when for has multiple bindings"
+    (let [code "(for [x (range 3) y (range 2)] (* x y))"
+          expected (lines "(for [x (range 3)"
+                          "      y (range 2)]"
+                          "  (* x"
+                          "     y))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "For bindings should align like let bindings")))
+
+  (testing "when doseq has multiple bindings"
+    (let [code "(doseq [x (range 3) y (range 2)] (println x y))"
+          expected (lines "(doseq [x (range 3)"
+                          "        y (range 2)]"
+                          "  (println x"
+                          "           y))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Doseq bindings should align like let bindings")))
+
+  (testing "when loop has bindings"
+    (let [code "(loop [x 0 acc []] (if (< x 5) (recur (inc x) (conj acc x)) acc))"
+          expected (lines "(loop [x 0"
+                          "       acc []]"
+                          "  (if (< x"
+                          "         5)"
+                          "    (recur (inc x)"
+                          "           (conj acc"
+                          "                 x))"
+                          "    acc))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Loop bindings should align like let bindings")))
+
+  (testing "when binding has dynamic vars"
+    (let [code "(binding [*out* writer *err* error-writer] (println \"test\") (flush))"
+          expected (lines "(binding [*out* writer"
+                          "          *err* error-writer]"
+                          "  (println \"test\")"
+                          "  (flush))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Binding form should align like let bindings")))
+
+  (testing "when with-open has resource bindings"
+    (let [code "(with-open [r (reader file) w (writer output)] (copy r w))"
+          expected (lines "(with-open [r (reader file)"
+                          "            w (writer output)]"
+                          "  (copy r"
+                          "        w))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "With-open bindings should align like let bindings")))
+
+  (testing "when if-let has condition binding"
+    (let [code "(if-let [result (some-func x)] (use result) (default-value))"
+          expected (lines "(if-let [result (some-func x)]"
+                          "  (use result)"
+                          "  (default-value))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "If-let should format with proper body indentation")))
+
+  (testing "when when-let has condition binding"
+    (let [code "(when-let [result (some-func x)] (println result) (process result))"
+          expected (lines "(when-let [result (some-func x)]"
+                          "  (println result)"
+                          "  (process result))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "When-let should format with proper body indentation")))
+
+  (testing "when dotimes has iteration binding"
+    (let [code "(dotimes [n 5] (println n) (process n))"
+          expected (lines "(dotimes [n 5]"
+                          "  (println n)"
+                          "  (process n))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Dotimes should format with proper body indentation"))))
