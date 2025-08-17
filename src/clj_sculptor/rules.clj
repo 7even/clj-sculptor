@@ -651,12 +651,12 @@
       :catch-body
       ;; catch body expressions get newline and 2-space indent from catch
       (let [catch-col (-> parent z/down z/position second)]
-        [(n/newlines 1) (n/spaces (+ catch-col 2))])
+        [(n/newlines 1) (n/spaces catch-col)])
 
       :finally-body
       ;; finally body expressions get newline and 2-space indent from finally
       (let [finally-col (-> parent z/down z/position second)]
-        [(n/newlines 1) (n/spaces (+ finally-col 2))])
+        [(n/newlines 1) (n/spaces finally-col)])
 
       :first-function-arg
       (n/spaces 1) ;; Single space after function name
