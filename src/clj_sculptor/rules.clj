@@ -49,6 +49,10 @@
   "Conditional forms with test/body structure."
   #{'if 'when 'when-not 'when-first 'when-some 'if-not})
 
+(def pair-based-form?
+  "Forms with test/result pairs that should be formatted on separate lines."
+  #{'cond 'case 'condp 'cond-> 'cond->>})
+
 (def ns-form?
   "ns form."
   #{'ns})
@@ -150,6 +154,30 @@
 ;; -----------------------------------------------------------------------------
 ;; Phase 2: Context detection helpers
 
+(defn count-non-whitespace-siblings
+  "Count non-whitespace siblings from start-node up to (but not including) target-node.
+   Returns the position of target-node among non-whitespace siblings."
+  [start-node target-node]
+  (let [target-position (z/position target-node)]
+    (loop [curr start-node
+           count 0]
+      (cond
+        (nil? curr)
+        nil ; target not found
+
+        (= (z/position curr)
+           target-position)
+        count
+
+        :else
+        (let [next-node (z/right curr)]
+          (if (contains? #{:whitespace :newline}
+                         (z/tag curr))
+            ;; Skip whitespace nodes in counting
+            (recur next-node count)
+            ;; Count non-whitespace nodes
+            (recur next-node (inc count))))))))
+
 (defn function-call?
   "Check if a list represents a function call or function-like form (not a special form)."
   [zloc]
@@ -174,7 +202,9 @@
    - :after-let-bindings
    - :if-clause
    - :require-vector-element
-   - :ns-arg"
+   - :ns-arg
+   - :pair-test
+   - :pair-result"
   [zloc]
   (let [tag (z/tag zloc)
         parent (z/up zloc)
@@ -186,6 +216,67 @@
       (and leftmost?
            (container-node? parent-tag))
       :after-open-paren
+
+      ;; Pair-based form contexts (cond, case, condp) - check early!
+      ;; pair-test - even positions after form name in pair-based forms
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)]
+             (and (pair-based-form? parent-first)
+                  (not leftmost?)
+                  ;; Skip the form name for position counting
+                  (let [pos (some-> parent
+                                    z/down
+                                    z/right
+                                    (count-non-whitespace-siblings zloc))]
+                    ;; For condp, skip the predicate and expression (first 2 args)
+                    ;; For case/cond->/cond->>, skip the initial expression (first 1 arg)
+                    ;; For cond, test positions are even (0, 2, 4...)
+                    (cond
+                      (= parent-first 'condp)
+                      (and (some? pos)
+                           (>= pos 2)
+                           (even? (- pos 2)))
+
+                      (contains? #{'case 'cond-> 'cond->>}
+                                 parent-first)
+                      (and (some? pos)
+                           (>= pos 1)
+                           (even? (- pos 1)))
+
+                      :else ; cond
+                      (and (some? pos)
+                           (even? pos)))))))
+      :pair-test
+
+      ;; pair-result - odd positions after form name in pair-based forms
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)]
+             (and (pair-based-form? parent-first)
+                  (not leftmost?)
+                  ;; Skip the form name for position counting
+                  (let [pos (some-> parent
+                                    z/down
+                                    z/right
+                                    (count-non-whitespace-siblings zloc))]
+                    ;; For condp, skip the predicate and expression (first 2 args)
+                    ;; For case/cond->/cond->>, skip the initial expression (first 1 arg)
+                    ;; For cond, result positions are odd (1, 3, 5...)
+                    (cond
+                      (= parent-first 'condp)
+                      (and (some? pos)
+                           (>= pos 2)
+                           (odd? (- pos 2)))
+
+                      (contains? #{'case 'cond-> 'cond->>}
+                                 parent-first)
+                      (and (some? pos)
+                           (>= pos 1)
+                           (odd? (- pos 1)))
+
+                      :else ; cond
+                      (and (some? pos)
+                           (odd? pos)))))))
+      :pair-result
 
       ;; def form contexts - check these first for priority
       ;; def docstring - second element in def form that is a string
@@ -240,13 +331,7 @@
                   (binding-form? (some-> grandparent z/down z/sexpr))
                   (not leftmost?)
                   ;; Check if this is an even position (binding name)
-                  (let [pos (loop [curr (z/leftmost zloc)
-                                   count 0]
-                              (if (= curr zloc)
-                                count
-                                (when-let [next-node (z/right curr)]
-                                  (recur next-node
-                                         (inc count)))))]
+                  (let [pos (count-non-whitespace-siblings (z/leftmost zloc) zloc)]
                     (and (some? pos)
                          (even? pos))))))
       :binding-name
@@ -259,13 +344,7 @@
                   (binding-form? (some-> grandparent z/down z/sexpr))
                   (not leftmost?)
                   ;; Check if this is an odd position (binding value)
-                  (let [pos (loop [curr (z/leftmost zloc)
-                                   count 0]
-                              (if (= curr zloc)
-                                count
-                                (when-let [next-node (z/right curr)]
-                                  (recur next-node
-                                         (inc count)))))]
+                  (let [pos (count-non-whitespace-siblings (z/leftmost zloc) zloc)]
                     (and (some? pos)
                          (odd? pos))))))
       :binding-value
@@ -294,6 +373,33 @@
            (not (= (z/left zloc)
                    (-> zloc z/up z/down))))
       :ns-arg
+
+      ;; Function arguments (check before other list handling)
+      ;; Special handling for condp predicate and expression arguments
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)]
+             (and (= parent-first 'condp)
+                  (not leftmost?)
+                  (let [pos (some-> parent
+                                    z/down
+                                    z/right
+                                    (count-non-whitespace-siblings zloc))]
+                    (and (some? pos)
+                         (< pos 2))))))
+      :between-elements ; Keep condp predicate and expression on same line
+
+      ;; Special handling for cond-> and cond->> initial expression
+      (and (= parent-tag :list)
+           (let [parent-first (some-> parent z/down z/sexpr)]
+             (and (contains? #{'cond-> 'cond->>} parent-first)
+                  (not leftmost?)
+                  (let [pos (some-> parent
+                                    z/down
+                                    z/right
+                                    (count-non-whitespace-siblings zloc))]
+                    (and (some? pos)
+                         (< pos 1))))))
+      :between-elements
 
       ;; Function arguments (check before other list handling)
       (and (function-call? parent)
@@ -357,13 +463,7 @@
       (and (= parent-tag
               :map)
            (not leftmost?)
-           (let [pos (loop [curr (z/leftmost zloc)
-                            count 0]
-                       (if (= curr zloc)
-                         count
-                         (when-let [next-node (z/right curr)]
-                           (recur next-node
-                                  (inc count)))))]
+           (let [pos (count-non-whitespace-siblings (z/leftmost zloc) zloc)]
              (and (some? pos)
                   (odd? pos)))) ;; Values are at odd positions (1, 3, 5...)
       :map-value
@@ -398,6 +498,40 @@
     (case context
       :after-open-paren
       nil ;; No whitespace after opening paren
+
+      :pair-test
+      ;; Pair tests get newline and 2-space indent from the form start
+      ;; With blank line before each pair (except first)
+      (let [pair-form-col (-> parent z/down z/position second)
+            parent-first (some-> parent z/down z/sexpr)
+            ;; Calculate position to determine if we need blank line
+            pos (some-> parent
+                        z/down
+                        z/right
+                        (count-non-whitespace-siblings zloc))
+            ;; For condp, first pair starts at position 2
+            ;; For case/cond->/cond->>, first pair starts at position 1
+            ;; For cond, first pair starts at position 0
+            is-first-pair? (cond
+                             (= parent-first 'condp)
+                             (= pos 2)
+
+                             (contains? #{'case 'cond-> 'cond->>}
+                                        parent-first)
+                             (= pos 1)
+
+                             :else
+                             (= pos 0))]
+        (if is-first-pair?
+          ;; First pair: just newline and indent
+          [(n/newlines 1) (n/spaces pair-form-col)]
+          ;; Subsequent pairs: blank line, then newline and indent
+          [(n/newlines 1) (n/newlines 1) (n/spaces pair-form-col)]))
+
+      :pair-result
+      ;; Pair results get newline and 2-space indent from the test
+      (let [pair-form-col (-> parent z/down z/position second)]
+        [(n/newlines 1) (n/spaces pair-form-col)])
 
       :def-docstring
       ;; def docstrings go on new line with 2-space indent

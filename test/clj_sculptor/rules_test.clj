@@ -16,13 +16,11 @@
                           "  :bar)")
           formatted (core/format-code code-with-trailing)]
       (is (= expected formatted))))
-
   (testing "when code has no trailing whitespace"
     (let [clean-code (lines "(defn foo []"
                             "  :bar)")
           formatted (core/format-code clean-code)]
       (is (= clean-code formatted))))
-
   (testing "when multiple lines have various amounts of trailing spaces"
     (let [code (lines "  (def x 1)   "
                       "  (def y 2)  ")
@@ -50,7 +48,6 @@
                           "     1))")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-
   (testing "when code has 8-space indentation"
     (let [code (lines "(defn bar [y]"
                       "        (* y 2))")
@@ -59,7 +56,6 @@
                           "     2))")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-
   (testing "when code already has 2-space indentation"
     (let [code (lines "(defn baz [z]"
                       "  (- z 1))")
@@ -68,7 +64,6 @@
                           "     1))")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-
   (testing "when code has nested forms with inconsistent indentation"
     (let [code (lines "(defn nested [x]"
                       "    (if (> x 0)"
@@ -93,7 +88,6 @@
                           " 3]")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-
   (testing "when map entries have inconsistent alignment"
     (let [code (lines "{:a 1"
                       "   :b 2"
@@ -103,7 +97,6 @@
                           " :c 3}")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-
   (testing "when set elements have varied indentation"
     (let [code (lines "#{:a"
                       "   :b"
@@ -113,7 +106,6 @@
                           "  :c}")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-
   (testing "when nested collections have misaligned elements"
     (let [code (lines "{:values [1"
                       "             2"
@@ -127,7 +119,6 @@
                           "                  5]}}")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-
   (testing "when vector contains function definitions with wrong indentation"
     (let [code (lines "[(defn foo [x]"
                       "      (+ x 1))"
@@ -141,7 +132,6 @@
                           "      2))]")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-
   (testing "when deeply nested collections have complex mixed structures"
     (let [code (str "{:config {:database {:host \"localhost\" :port 5432 "
                     ":ssl {:enabled true :cert \"/path/cert.pem\"}} "
@@ -187,25 +177,21 @@
           expected "{:a 1\n :b 2}"
           formatted (core/format-code code)]
       (is (= expected formatted) "Should insert 1 space for map alignment")))
-
   (testing "when vector elements have no indentation after newline"
     (let [code "[1\n2\n3]"
           expected "[1\n 2\n 3]"
           formatted (core/format-code code)]
       (is (= expected formatted) "Should insert 1 space for vector alignment")))
-
   (testing "when set elements have no indentation after newline"
     (let [code "#{1\n2\n3}"
           expected "#{1\n  2\n  3}"
           formatted (core/format-code code)]
       (is (= expected formatted) "Should insert 2 spaces for set alignment")))
-
   (testing "when function body has no indentation after newline"
     (let [code "(defn foo []\n:bar)"
           expected "(defn foo []\n  :bar)"
           formatted (core/format-code code)]
       (is (= expected formatted) "Should insert 2 spaces for function body")))
-
   (testing "when nested map has no indentation"
     (let [code "{:outer {:inner 1\n:key 2}}"
           expected "{:outer {:inner 1\n         :key 2}}"
@@ -276,7 +262,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Multiple top-level forms should be properly separated and formatted")))
-
   (testing "when multiple forms have inconsistent spacing between them"
     (let [code "(def x 1)   (def y 2)    (defn add [a b] (+ a b))"
           expected (lines "(def x\n  1)"
@@ -290,7 +275,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Forms should be separated by newlines with consistent formatting")))
-
   (testing "when forms contain complex nested structures"
     (let [code (str "(def data [{:users [{:name \"Alice\" :roles #{:admin :user}}]} "
                     "{:system {:config {:db {:host \"localhost\"}}}}]) "
@@ -470,7 +454,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Simple def values should go on separate line")))
-
   (testing "when def has complex value"
     (let [code "(def complex-var {:a 1 :b 2})"
           expected (lines "(def complex-var"
@@ -479,7 +462,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Complex def values should go on separate line and be properly formatted")))
-
   (testing "when def has docstring and value"
     (let [code "(def var-with-doc \"Documentation string\" 42)"
           expected (lines "(def var-with-doc"
@@ -488,7 +470,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Def docstring should go on separate line between name and value")))
-
   (testing "when def has docstring and complex value"
     (let [code "(def documented-map \"A map with documentation\" {:key :value})"
           expected (lines "(def documented-map"
@@ -497,7 +478,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Def with docstring and complex value should format correctly")))
-
   (testing "when def has vector value"
     (let [code "(def my-vector [1 2 3])"
           expected (lines "(def my-vector"
@@ -507,7 +487,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Def with vector value should format vector on separate line")))
-
   (testing "when def has function value"
     (let [code "(def my-fn (fn [x] (+ x 1)))"
           expected (lines "(def my-fn"
@@ -527,7 +506,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Args vector should stay on same line when no docstring")))
-
   (testing "when defn has docstring"
     (let [code "(defn documented-fn \"This adds one\" [x] (+ x 1))"
           expected (lines "(defn documented-fn"
@@ -538,7 +516,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Docstring should go on next line, args vector after docstring")))
-
   (testing "when defn has multi-line docstring"
     (let [code (lines "(defn multi-doc-fn \"Line one"
                       "Line two\" [x] x)")
@@ -550,7 +527,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Multi-line docstring should be preserved with args on next line")))
-
   (testing "when defn has multiple args"
     (let [code "(defn multi-arg [a b c] (+ a b c))"
           expected (lines "(defn multi-arg [a"
@@ -562,7 +538,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Multiple args should align properly")))
-
   (testing "when defn has docstring and multiple args"
     (let [code "(defn doc-multi-arg \"Adds three numbers\" [a b c] (+ a b c))"
           expected (lines "(defn doc-multi-arg"
@@ -576,7 +551,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Docstring and multiple args should format correctly")))
-
   (testing "when defn has destructuring"
     (let [code "(defn destructure-fn [{:keys [a b]}] (+ a b))"
           expected (lines "(defn destructure-fn [{:keys [a"
@@ -586,7 +560,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Destructuring in args should format correctly")))
-
   (testing "when defn has docstring and destructuring"
     (let [code "(defn doc-destructure \"Destructures map\" [{:keys [x y]}] (+ x y))"
           expected (lines "(defn doc-destructure"
@@ -598,7 +571,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Docstring with destructuring should format correctly")))
-
   (testing "when defn has variadic args"
     (let [code "(defn variadic-fn [a & rest] (apply + a rest))"
           expected (lines "(defn variadic-fn [a"
@@ -610,7 +582,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Variadic args should format correctly")))
-
   (testing "when defn has docstring and variadic args"
     (let [code "(defn doc-variadic \"Sums all args\" [a & rest] (apply + a rest))"
           expected (lines "(defn doc-variadic"
@@ -624,7 +595,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Docstring with variadic args should format correctly")))
-
   (testing "when defn- (private) has docstring"
     (let [code "(defn- private-fn \"Private function\" [x] x)"
           expected (lines "(defn- private-fn"
@@ -755,7 +725,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "For bindings should align like let bindings")))
-
   (testing "when doseq has multiple bindings"
     (let [code "(doseq [x (range 3) y (range 2)] (println x y))"
           expected (lines "(doseq [x (range 3)"
@@ -765,7 +734,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Doseq bindings should align like let bindings")))
-
   (testing "when loop has bindings"
     (let [code "(loop [x 0 acc []] (if (< x 5) (recur (inc x) (conj acc x)) acc))"
           expected (lines "(loop [x 0"
@@ -779,7 +747,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Loop bindings should align like let bindings")))
-
   (testing "when binding has dynamic vars"
     (let [code "(binding [*out* writer *err* error-writer] (println \"test\") (flush))"
           expected (lines "(binding [*out* writer"
@@ -789,7 +756,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Binding form should align like let bindings")))
-
   (testing "when with-open has resource bindings"
     (let [code "(with-open [r (reader file) w (writer output)] (copy r w))"
           expected (lines "(with-open [r (reader file)"
@@ -799,7 +765,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "With-open bindings should align like let bindings")))
-
   (testing "when if-let has condition binding"
     (let [code "(if-let [result (some-func x)] (use result) (default-value))"
           expected (lines "(if-let [result (some-func x)]"
@@ -808,7 +773,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "If-let should format with proper body indentation")))
-
   (testing "when when-let has condition binding"
     (let [code "(when-let [result (some-func x)] (println result) (process result))"
           expected (lines "(when-let [result (some-func x)]"
@@ -817,7 +781,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "When-let should format with proper body indentation")))
-
   (testing "when dotimes has iteration binding"
     (let [code "(dotimes [n 5] (println n) (process n))"
           expected (lines "(dotimes [n 5]"
@@ -837,7 +800,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "If clauses should indent 2 spaces from the if form")))
-
   (testing "when when has multiple body expressions"
     (let [code "(when (> x 0) (println x) (inc x) (process x))"
           expected (lines "(when (> x"
@@ -848,7 +810,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "When body expressions should each be on separate lines with 2-space indent")))
-
   (testing "when when-not has condition and body"
     (let [code "(when-not (empty? coll) (println \"not empty\") (process coll))"
           expected (lines "(when-not (empty? coll)"
@@ -857,7 +818,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "When-not should format like when")))
-
   (testing "when if-not has condition and clauses"
     (let [code "(if-not (zero? x) (process x) (handle-zero))"
           expected (lines "(if-not (zero? x)"
@@ -866,7 +826,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "If-not should format like if")))
-
   (testing "when conditionals are nested"
     (let [code (str "(when (> x 0) (if (even? x) (println \"positive even\") "
                     "(println \"positive odd\")))")
@@ -878,7 +837,6 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Nested conditionals should maintain proper relative indentation")))
-
   (testing "when conditional has complex condition"
     (let [code "(if (and (pos? x) (< x 100) (not (zero? (mod x 3)))) (process x) (skip x))"
           expected (lines "(if (and (pos? x)"
@@ -891,3 +849,148 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Complex conditions should format with proper alignment"))))
+
+(deftest test-pair-based-edge-cases
+  (testing "when position tracking encounters whitespace after insertions"
+    (let [code "(cond a b c d)"
+          expected (lines "(cond"
+                          "  a"
+                          "  b"
+                          ""
+                          "  c"
+                          "  d)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when case has expression"
+    (let [code "(case x :a 1 :b 2)"
+          expected (lines "(case x"
+                          "  :a"
+                          "  1"
+                          ""
+                          "  :b"
+                          "  2)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "case with default value"
+    (let [code "(case x :a 1 :b 2 \"default\")"
+          expected (lines "(case x"
+                          "  :a"
+                          "  1"
+                          ""
+                          "  :b"
+                          "  2"
+                          ""
+                          "  \"default\")")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when condp has predicate and expression"
+    (let [code "(condp = x :a 1 :b 2)"
+          expected (lines "(condp = x"
+                          "  :a"
+                          "  1"
+                          ""
+                          "  :b"
+                          "  2)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "single pair forms without extra blank lines"
+    (let [code "(cond (> x 0) \"positive\")"
+          expected (lines "(cond"
+                          "  (> x"
+                          "     0)"
+                          "  \"positive\")")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "nested pair-based forms"
+    (let [code "(cond (< x 0) (case sign :neg -1 :pos 1) (> x 0) \"positive\")"
+          expected (lines "(cond"
+                          "  (< x"
+                          "     0)"
+                          "  (case sign"
+                          "    :neg"
+                          "    -1"
+                          ""
+                          "    :pos"
+                          "    1)"
+                          ""
+                          "  (> x"
+                          "     0)"
+                          "  \"positive\")")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "pair-based forms within other special forms"
+    (let [code "(let [x 1] (cond (pos? x) (+ x 1) :else 0))"
+          expected (lines "(let [x 1]"
+                          "  (cond"
+                          "    (pos? x)"
+                          "    (+ x"
+                          "       1)"
+                          ""
+                          "    :else"
+                          "    0))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
+
+(deftest test-count-non-whitespace-siblings-function
+  (testing "when helper function counts positions with whitespace"
+    (let [code "(cond a b c d)"
+          formatted (core/format-code code)
+          expected (lines "(cond"
+                          "  a"
+                          "  b"
+                          ""
+                          "  c"
+                          "  d)")]
+      (is (= expected formatted))))
+  (testing "when threading macro style is applied"
+    (let [code "(case op :+ (+ x y) :- (- x y))"
+          expected (lines "(case op"
+                          "  :+"
+                          "  (+ x"
+                          "     y)"
+                          ""
+                          "  :-"
+                          "  (- x"
+                          "     y))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
+
+(deftest test-threading-macro-pairs
+  (testing "when cond-> has initial expression"
+    (let [code "(cond-> x (pos? x) inc (even? x) (* 2))"
+          expected (lines "(cond-> x"
+                          "  (pos? x)"
+                          "  inc"
+                          ""
+                          "  (even? x)"
+                          "  (* 2))")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when cond->> has initial expression"
+    (let [code "(cond->> x (pos? x) (map inc) (even? (count x)) (filter odd?))"
+          expected (lines "(cond->> x"
+                          "  (pos? x)"
+                          "  (map inc)"
+                          ""
+                          "  (even? (count x))"
+                          "  (filter odd?))")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when cond-> has single condition/expression pair"
+    (let [code "(cond-> x (pos? x) inc)"
+          expected (lines "(cond-> x"
+                          "  (pos? x)"
+                          "  inc)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when cond->> has nested expressions"
+    (let [code "(cond->> data (seq data) (map process) (> (count data) 10) (take 10))"
+          expected (lines "(cond->> data"
+                          "  (seq data)"
+                          "  (map process)"
+                          ""
+                          "  (> (count data)"
+                          "     10)"
+                          "  (take 10))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
