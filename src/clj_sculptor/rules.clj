@@ -241,8 +241,11 @@
                                    count 0]
                               (if (= curr zloc)
                                 count
-                                (recur (z/right curr) (inc count))))]
-                    (even? pos)))))
+                                (when-let [next-node (z/right curr)]
+                                  (recur next-node
+                                         (inc count)))))]
+                    (and (some? pos)
+                         (even? pos))))))
       :let-binding-name
 
       ;; let binding value - odd positions (1, 3, 5...) in let binding vectors
@@ -257,8 +260,11 @@
                                    count 0]
                               (if (= curr zloc)
                                 count
-                                (recur (z/right curr) (inc count))))]
-                    (odd? pos)))))
+                                (when-let [next-node (z/right curr)]
+                                  (recur next-node
+                                         (inc count)))))]
+                    (and (some? pos)
+                         (odd? pos))))))
       :let-binding-value
 
       ;; Special handling for :require/:import vectors - check early!
@@ -352,8 +358,11 @@
                             count 0]
                        (if (= curr zloc)
                          count
-                         (recur (z/right curr) (inc count))))] ;; Use z/right to skip whitespace
-             (odd? pos))) ;; Values are at odd positions (1, 3, 5...)
+                         (when-let [next-node (z/right curr)]
+                           (recur next-node
+                                  (inc count)))))]
+             (and (some? pos)
+                  (odd? pos)))) ;; Values are at odd positions (1, 3, 5...)
       :map-value
 
       ;; Collection elements (any non-first element in collections)
