@@ -8,6 +8,10 @@ This document tracks the implementation of formatting rules based on the
       dispatch on node type
 - [ ] Add configuration system - Support for customizing rules (even though we start without
       config options)
+- [ ] Dynamic form pattern detection - Implement hybrid approach for detecting special forms:
+      hardcoded known forms + structural analysis + optional user configuration. This allows
+      automatic formatting of library-specific forms (binding forms, conditional forms, etc.)
+      without requiring code changes to the formatter
 
 ## Phase 2: Indentation & Alignment Rules
 - [x] 2-space indentation - Convert tabs to spaces, ensure consistent indentation depth
