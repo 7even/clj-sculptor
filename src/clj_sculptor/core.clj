@@ -1,14 +1,13 @@
 (ns clj-sculptor.core
   (:require [clj-sculptor.rules :as rules]
-            [rewrite-clj.zip :as z]))
+            [rewrite-clj.zip :as z]
+            [rewrite-clj.node :as n]))
 
 (defn format-code
-  "Format code using the strip-and-generate approach."
+  "Format code using the recursive multimethod architecture."
   [code-str]
-  (-> code-str
-      (z/of-string {:track-position? true})
-      rules/normalize-collection-types
-      rules/sort-ns-forms
-      rules/strip-whitespace
-      rules/insert-whitespace
-      z/root-string))
+  (let [root-node (-> code-str
+                      z/of-string
+                      z/root)]
+    (-> (rules/format-node 0 root-node)
+        n/string)))

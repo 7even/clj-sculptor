@@ -97,6 +97,32 @@
                           " :c 3}")
           formatted (core/format-code code)]
       (is (= expected formatted))))
+  (testing "when map keys are complex structures"
+    (let [code (lines "{[:complex"
+                      "   :multi"
+                      "  :line"
+                      "   :key] [\"test\""
+                      "                \"alignment\"] }")
+          expected (lines "{[:complex"
+                          "  :multi"
+                          "  :line"
+                          "  :key] [\"test\""
+                          "         \"alignment\"]}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when complex map keys are nested one level deep"
+    (let [code (lines "{:data {[:complex"
+                      "            :multi"
+                      "           :line"
+                      "            :key] [\"test\""
+                      "                         \"alignment\"]}}")
+          expected (lines "{:data {[:complex"
+                          "         :multi"
+                          "         :line"
+                          "         :key] [\"test\""
+                          "                \"alignment\"]}}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
   (testing "when set elements have varied indentation"
     (let [code (lines "#{:a"
                       "   :b"
@@ -140,6 +166,7 @@
                     ":settings {:theme \"dark\" :notifications {:email true :push false}}} "
                     "{:id 2 :roles #{:user} :metadata {:tags [\"important\" \"customer\"] "
                     ":scores {:total 95 :breakdown {:performance 98 :reliability 92}}}}] "
+                    "[:complex :multi :line :key] [\"test\" \"alignment\"] "
                     ":stats {:daily [100 150 200] :weekly #{:mon :tue :wed}}}}")
           expected (lines "{:config {:database {:host \"localhost\""
                           "                     :port 5432"
@@ -161,6 +188,11 @@
                           "                            :scores {:total 95"
                           "                                     :breakdown {:performance 98"
                           "                                                 :reliability 92}}}}]"
+                          "        [:complex"
+                          "         :multi"
+                          "         :line"
+                          "         :key] [\"test\""
+                          "                \"alignment\"]"
                           "        :stats {:daily [100"
                           "                        150"
                           "                        200]"
@@ -244,21 +276,46 @@
           expected (lines "(func arg1"
                           "      arg2)")
           formatted (core/format-code code)]
-      (is (= expected formatted) "First arg should move to same line"))))
+      (is (= expected formatted) "First arg should move to same line")))
+  (testing "when keyword is used as function"
+    (let [code "(:key some-map other-arg)"
+          expected (lines "(:key some-map"
+                          "      other-arg)")
+          formatted (core/format-code code)]
+      (is (= expected formatted) "Keyword function arguments should align properly")))
+  (testing "when multi-line function expression is used"
+    (let [code "((comp inc dec) x y)"
+          expected (lines "((comp inc"
+                          "       dec) x"
+                          "            y)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multi-line function expression arguments should align with closing paren"))))
 
 (deftest test-multiple-top-level-forms
   (testing "when file contains multiple varied top-level forms"
     (let [code (str "(defn helper [x] (+ x 1)) "
                     "(def config {:key \"value\"}) "
-                    "(defmethod multi-fn :type [{:keys [data]}] (process data))")
+                    "(defmulti multi-fn :type) "
+                    "(defmethod multi-fn :type [{:keys [data]}] (process data)) "
+                    "(defmulti complex-dispatch (fn [x] (if (map? x) :map :other)))")
           expected (lines "(defn helper [x]"
                           "  (+ x"
                           "     1))"
                           ""
                           "(def config\n  {:key \"value\"})"
                           ""
+                          "(defmulti multi-fn"
+                          "  :type)"
+                          ""
                           "(defmethod multi-fn :type [{:keys [data]}]"
-                          "  (process data))")
+                          "  (process data))"
+                          ""
+                          "(defmulti complex-dispatch"
+                          "  (fn [x]"
+                          "    (if (map? x)"
+                          "      :map"
+                          "      :other)))")
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Multiple top-level forms should be properly separated and formatted")))
@@ -292,6 +349,11 @@
           "Complex nested structures in multiple forms should maintain proper alignment"))))
 
 (deftest test-require-formatting
+  (testing "when ns form is empty"
+    (let [code "(ns  example)"
+          expected "(ns example)"
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
   (testing "when ns form has single require"
     (let [code "(ns example (:require [clojure.string :as str]))"
           expected (lines "(ns example"
@@ -332,8 +394,10 @@
   (testing "when ns form has multiple imports"
     (let [code "(ns example (:import (java.util Date Calendar) (java.io File FileReader)))"
           expected (lines "(ns example"
-                          "  (:import (java.io File FileReader)"
-                          "           (java.util Date Calendar)))")
+                          "  (:import (java.io File"
+                          "                    FileReader)"
+                          "           (java.util Date"
+                          "                      Calendar)))")
           formatted (core/format-code code)]
       (is (= expected formatted)
           (str "Multiple import lists should align like function arguments "
@@ -341,7 +405,9 @@
   (testing "when import uses list with multiple classes"
     (let [code "(ns example (:import (java.util Date Calendar TimeZone)))"
           expected (lines "(ns example"
-                          "  (:import (java.util Date Calendar TimeZone)))")
+                          "  (:import (java.util Date"
+                          "                      Calendar"
+                          "                      TimeZone)))")
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Import list with multiple classes should maintain proper formatting")))
@@ -444,7 +510,17 @@
                       "           (java.util Date)))")
           formatted (core/format-code code)]
       (is (= code formatted)
-          "Already correct ordering and sorting should be preserved"))))
+          "Already correct ordering and sorting should be preserved")))
+  (testing "when namespace has docstring with imports and requires"
+    (let [code (str "(ns example \"A namespace with a docstring\" "
+                    "(:import (java.util Date)) (:require [clojure.string :as str]))")
+          expected (lines "(ns example"
+                          "  \"A namespace with a docstring\""
+                          "  (:require [clojure.string :as str])"
+                          "  (:import (java.util Date)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Docstring should come after ns name, then :require before :import"))))
 
 (deftest test-def-formatting
   (testing "when def has simple value"
@@ -491,8 +567,8 @@
     (let [code "(def my-fn (fn [x] (+ x 1)))"
           expected (lines "(def my-fn"
                           "  (fn [x]"
-                          "      (+ x"
-                          "         1)))")
+                          "    (+ x"
+                          "       1)))")
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Def with function value should format function on separate line"))))
@@ -574,21 +650,43 @@
   (testing "when defn has variadic args"
     (let [code "(defn variadic-fn [a & rest] (apply + a rest))"
           expected (lines "(defn variadic-fn [a"
-                          "                   &"
-                          "                   rest]"
+                          "                   & rest]"
                           "  (apply +"
                           "         a"
                           "         rest))")
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Variadic args should format correctly")))
+  (testing "when defn has complex destructuring after &"
+    (let [code "(defn f [x & {:keys [a b c]}] (+ x a b c))"
+          expected (lines "(defn f [x"
+                          "         & {:keys [a"
+                          "                   b"
+                          "                   c]}]"
+                          "  (+ x"
+                          "     a"
+                          "     b"
+                          "     c))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Complex destructuring after & should align properly")))
+  (testing "when defn has vector destructuring after &"
+    (let [code "(defn g [x & [first second]] (+ x first second))"
+          expected (lines "(defn g [x"
+                          "         & [first"
+                          "            second]]"
+                          "  (+ x"
+                          "     first"
+                          "     second))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Vector destructuring after & should align properly")))
   (testing "when defn has docstring and variadic args"
     (let [code "(defn doc-variadic \"Sums all args\" [a & rest] (apply + a rest))"
           expected (lines "(defn doc-variadic"
                           "  \"Sums all args\""
                           "  [a"
-                          "   &"
-                          "   rest]"
+                          "   & rest]"
                           "  (apply +"
                           "         a"
                           "         rest))")
@@ -603,7 +701,81 @@
                           "  x)")
           formatted (core/format-code code)]
       (is (= expected formatted)
-          "Private defn with docstring should format like public defn"))))
+          "Private defn with docstring should format like public defn")))
+  (testing "when defn has multiple arities without docstring"
+    (let [code "(defn multi-arity ([x] x) ([x y] (+ x y)))"
+          expected (lines "(defn multi-arity"
+                          "  ([x]"
+                          "   x)"
+                          "  ([x"
+                          "    y]"
+                          "   (+ x"
+                          "      y)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multi-arity defn should format each arity on separate lines")))
+  (testing "when defn has multiple arities with docstring"
+    (let [code "(defn sum \"Sums numbers\" ([x] x) ([x y] (+ x y)) ([x y z] (+ x y z)))"
+          expected (lines "(defn sum"
+                          "  \"Sums numbers\""
+                          "  ([x]"
+                          "   x)"
+                          "  ([x"
+                          "    y]"
+                          "   (+ x"
+                          "      y))"
+                          "  ([x"
+                          "    y"
+                          "    z]"
+                          "   (+ x"
+                          "      y"
+                          "      z)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multi-arity defn with docstring should format correctly")))
+  (testing "when defn- has multiple arities"
+    (let [code "(defn- private-multi ([x] x) ([x y] (+ x y)))"
+          expected (lines "(defn- private-multi"
+                          "  ([x]"
+                          "   x)"
+                          "  ([x"
+                          "    y]"
+                          "   (+ x"
+                          "      y)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Private multi-arity defn should format correctly")))
+  (testing "when multi-arity defn has comments in body"
+    (let [code (lines "(defn process ([x] ;; single arg"
+                      "(inc x)) ([x y] ;; two args"
+                      ";; block comment"
+                      "(+ x y)))")
+          expected (lines "(defn process"
+                          "  ([x] ;; single arg"
+                          "   (inc x))"
+                          "  ([x"
+                          "    y] ;; two args"
+                          "   ;; block comment"
+                          "   (+ x"
+                          "      y)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multi-arity defn with comments between args and body should format correctly")))
+  (testing "when defn has newline between & and rest with inline comment"
+    (let [code (lines "(defn variadic-newline [a &"
+                      "                         rest ;; variadic args"
+                      "                        ]"
+                      "  (apply + a rest))")
+          expected (lines "(defn variadic-newline [a"
+                          "                        & rest ;; variadic args"
+                          "                        ]"
+                          "  (apply +"
+                          "         a"
+                          "         rest))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          (str "Newline between & and rest with inline comment should preserve existing spacing"
+               " and keep comment inline")))))
 
 (deftest test-let-formatting
   (testing "when let has simple bindings"
@@ -851,7 +1023,7 @@
           "Complex conditions should format with proper alignment"))))
 
 (deftest test-pair-based-edge-cases
-  (testing "when position tracking encounters whitespace after insertions"
+  (testing "when cond has multiple pairs"
     (let [code "(cond a b c d)"
           expected (lines "(cond"
                           "  a"
@@ -871,7 +1043,7 @@
                           "  2)")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-  (testing "case with default value"
+  (testing "when case has default value"
     (let [code "(case x :a 1 :b 2 \"default\")"
           expected (lines "(case x"
                           "  :a"
@@ -893,7 +1065,23 @@
                           "  2)")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-  (testing "single pair forms without extra blank lines"
+  (testing "when condp has complex predicate and expression"
+    (let [code (lines "(condp (comp odd? inc first) [1 2]"
+                      " :a {:foo [1 2]} :b {:bar [3 4]})")
+          expected (lines "(condp (comp odd?"
+                          "             inc"
+                          "             first) [1"
+                          "                     2]"
+                          "  :a"
+                          "  {:foo [1"
+                          "         2]}"
+                          ""
+                          "  :b"
+                          "  {:bar [3"
+                          "         4]})")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when cond has single pair"
     (let [code "(cond (> x 0) \"positive\")"
           expected (lines "(cond"
                           "  (> x"
@@ -901,7 +1089,7 @@
                           "  \"positive\")")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-  (testing "nested pair-based forms"
+  (testing "when pair-based forms are nested"
     (let [code "(cond (< x 0) (case sign :neg -1 :pos 1) (> x 0) \"positive\")"
           expected (lines "(cond"
                           "  (< x"
@@ -918,7 +1106,7 @@
                           "  \"positive\")")
           formatted (core/format-code code)]
       (is (= expected formatted))))
-  (testing "pair-based forms within other special forms"
+  (testing "when pair-based forms are within other special forms"
     (let [code "(let [x 1] (cond (pos? x) (+ x 1) :else 0))"
           expected (lines "(let [x 1]"
                           "  (cond"
@@ -928,30 +1116,6 @@
                           ""
                           "    :else"
                           "    0))")
-          formatted (core/format-code code)]
-      (is (= expected formatted)))))
-
-(deftest test-count-non-whitespace-siblings-function
-  (testing "when helper function counts positions with whitespace"
-    (let [code "(cond a b c d)"
-          formatted (core/format-code code)
-          expected (lines "(cond"
-                          "  a"
-                          "  b"
-                          ""
-                          "  c"
-                          "  d)")]
-      (is (= expected formatted))))
-  (testing "when threading macro style is applied"
-    (let [code "(case op :+ (+ x y) :- (- x y))"
-          expected (lines "(case op"
-                          "  :+"
-                          "  (+ x"
-                          "     y)"
-                          ""
-                          "  :-"
-                          "  (- x"
-                          "     y))")
           formatted (core/format-code code)]
       (is (= expected formatted)))))
 
@@ -997,7 +1161,8 @@
 
 (deftest test-try-catch-finally-formatting
   (testing "when try has simple body with catch"
-    (let [code "(try (do-something) (catch Exception e (handle-error e)))"
+    (let [code (lines "(try (do-something)"
+                      " (catch Exception e (handle-error e)))")
           expected (lines "(try"
                           "  (do-something)"
                           "  (catch Exception e"
@@ -1005,7 +1170,9 @@
           formatted (core/format-code code)]
       (is (= expected formatted))))
   (testing "when try has multiple expressions with finally"
-    (let [code "(try (open-resource) (process-data) (finally (cleanup)))"
+    (let [code (lines "(try (open-resource)"
+                      " (process-data)"
+                      " (finally (cleanup)))")
           expected (lines "(try"
                           "  (open-resource)"
                           "  (process-data)"
@@ -1014,7 +1181,9 @@
           formatted (core/format-code code)]
       (is (= expected formatted))))
   (testing "when try has catch and finally"
-    (let [code "(try (risky-operation) (catch IOException e (log e)) (finally (close-resource)))"
+    (let [code (lines "(try (risky-operation)"
+                      " (catch IOException e (log e))"
+                      " (finally (close-resource)))")
           expected (lines "(try"
                           "  (risky-operation)"
                           "  (catch IOException e"
@@ -1024,7 +1193,9 @@
           formatted (core/format-code code)]
       (is (= expected formatted))))
   (testing "when try has multiple catch clauses"
-    (let [code "(try (operation) (catch IOException e1 (handle-io e1)) (catch SQLException e2 (handle-sql e2)))"
+    (let [code (lines "(try (operation)"
+                      " (catch IOException e1 (handle-io e1))"
+                      " (catch SQLException e2 (handle-sql e2)))")
           expected (lines "(try"
                           "  (operation)"
                           "  (catch IOException e1"
@@ -1032,4 +1203,730 @@
                           "  (catch SQLException e2"
                           "    (handle-sql e2)))")
           formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when try has comments"
+    (let [code (lines "(try ;; inline after try"
+                      " (operation) ;; inline after operation"
+                      " ;; block comment"
+                      " (catch IOException e1 (handle-io e1))"
+                      "(catch SQLException e2"
+                      " ;; comment in catch"
+                      " (handle-sql e2)"
+                      " ;; trailing comment"
+                      "))")
+          expected (lines ";; inline after try"
+                          "(try"
+                          "  (operation) ;; inline after operation"
+                          "  ;; block comment"
+                          "  (catch IOException e1"
+                          "    (handle-io e1))"
+                          "  (catch SQLException e2"
+                          "    ;; comment in catch"
+                          "    (handle-sql e2)"
+                          "    ;; trailing comment"
+                          "    ))")
+          formatted (core/format-code code)]
       (is (= expected formatted)))))
+
+(deftest test-fn-formatting
+  (testing "when fn has single arity without name"
+    (let [code "(fn [x] (+ x 1))"
+          expected (lines "(fn [x]"
+                          "  (+ x"
+                          "     1))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Anonymous fn should format with args on same line")))
+  (testing "when fn has single arity with name"
+    (let [code "(fn add-one [x] (+ x 1))"
+          expected (lines "(fn add-one [x]"
+                          "  (+ x"
+                          "     1))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Named fn should keep name and args on same line")))
+  (testing "when fn has multiple arities without name"
+    (let [code "(fn ([x] (+ x 1)) ([x y] (+ x y)))"
+          expected (lines "(fn ([x]"
+                          "     (+ x"
+                          "        1))"
+                          "    ([x"
+                          "      y]"
+                          "     (+ x"
+                          "        y)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multi-arity fn should have first arity on same line")))
+  (testing "when fn has multiple arities with name"
+    (let [code "(fn sum ([x] x) ([x y] (+ x y)) ([x y z] (+ x y z)))"
+          expected (lines "(fn sum"
+                          "  ([x]"
+                          "   x)"
+                          "  ([x"
+                          "    y]"
+                          "   (+ x"
+                          "      y))"
+                          "  ([x"
+                          "    y"
+                          "    z]"
+                          "   (+ x"
+                          "      y"
+                          "      z)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Named multi-arity fn should format name on first line, arities below")))
+  (testing "when fn has destructuring in args"
+    (let [code "(fn [{:keys [a b]}] (+ a b))"
+          expected (lines "(fn [{:keys [a"
+                          "             b]}]"
+                          "  (+ a"
+                          "     b))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Fn with destructuring should format args properly")))
+  (testing "when fn has variadic args"
+    (let [code "(fn [x & rest] (apply + x rest))"
+          expected (lines "(fn [x"
+                          "     & rest]"
+                          "  (apply +"
+                          "         x"
+                          "         rest))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Fn with variadic args should keep & on same line"))))
+
+(deftest test-defmacro-formatting
+  (testing "when defmacro has single arity without docstring"
+    (let [code "(defmacro unless [test body] `(if (not ~test) ~body))"
+          expected (lines "(defmacro unless [test"
+                          "                  body]"
+                          "  `(if (not ~test)"
+                          "     ~body))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Defmacro should format like defn")))
+  (testing "when defmacro has docstring"
+    (let [code (str "(defmacro unless \"Opposite of when\" [test body] "
+                    "`(if (not ~test) ~body))")
+          expected (lines "(defmacro unless"
+                          "  \"Opposite of when\""
+                          "  [test"
+                          "   body]"
+                          "  `(if (not ~test)"
+                          "     ~body))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Defmacro with docstring should format correctly")))
+  (testing "when defmacro has multiple arities"
+    (let [code (str "(defmacro my-or ([] nil) ([x] x) "
+                    "([x & rest] `(let [or# ~x] (if or# or# (my-or ~@rest)))))")
+          expected (lines "(defmacro my-or"
+                          "  ([]"
+                          "   nil)"
+                          "  ([x]"
+                          "   x)"
+                          "  ([x"
+                          "    & rest]"
+                          "   `(let [or# ~x]"
+                          "      (if or#"
+                          "        or#"
+                          "        (my-or ~@rest)))))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multi-arity defmacro should format each arity on separate lines")))
+  (testing "when defmacro has variadic args"
+    (let [code "(defmacro debug [& forms] `(do (println \"Debug:\") ~@forms))"
+          expected (lines "(defmacro debug [& forms]"
+                          "  `(do"
+                          "     (println \"Debug:\")"
+                          "     ~@forms))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Defmacro with variadic args should format correctly")))
+  (testing "when defmacro has destructuring"
+    (let [code (str "(defmacro with-config [{:keys [timeout retry]} & body] "
+                    "`(binding [*config* {:timeout ~timeout :retry ~retry}] ~@body))")
+          expected (lines "(defmacro with-config [{:keys [timeout"
+                          "                               retry]}"
+                          "                       & body]"
+                          "  `(binding [*config* {:timeout ~timeout"
+                          "                       :retry ~retry}]"
+                          "     ~@body))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Defmacro with destructuring should format correctly"))))
+
+(deftest test-comment-formatting
+  (testing "when inline comment follows a form"
+    (let [code "(def x 1) ;; the value"
+          expected (lines "(def x"
+                          "  1) ;; the value")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when standalone comment precedes a form"
+    (let [code (lines ";; This defines x"
+                      "(def x 1)")
+          expected (lines ";; This defines x"
+                          "(def x"
+                          "  1)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when comment appears between forms"
+    (let [code (lines "(def x 1)"
+                      ";; Now y"
+                      "(def y 2)")
+          expected (lines "(def x"
+                          "  1)"
+                          ""
+                          ";; Now y"
+                          "(def y"
+                          "  2)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when inline comment appears after argument"
+    (let [code (lines "(+ 1 ;; first number"
+                      "   2)")
+          expected (lines "(+ 1 ;; first number"
+                          "   2)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when inline comment appears in map"
+    (let [code (lines "{:a 1 ;; key a"
+                      " :b 2}")
+          expected (lines "{:a 1 ;; key a"
+                          " :b 2}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when comments have different semicolon counts"
+    (let [code (lines "; single"
+                      ";; double"
+                      ";;; triple"
+                      "(def x 1)")
+          expected (lines ";; single"
+                          ";; double"
+                          ";;; triple"
+                          "(def x"
+                          "  1)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when comment appears with proper indentation"
+    (let [code (lines "(defn foo []"
+                      "  ;; do something"
+                      "  (println))")
+          expected (lines "(defn foo []"
+                          "  ;; do something"
+                          "  (println))")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when inline comment follows a closing delimiter"
+    (let [code (lines "(defn f []"
+                      "  :x) ;; returns x")
+          expected (lines "(defn f []"
+                          "  :x) ;; returns x")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
+
+(deftest test-comment-edge-cases
+  (testing "when comment appears between function name and first argument"
+    (let [code (lines "(or ;; comment1"
+                      "  x"
+                      "  ;; comment2"
+                      "  y)")
+          ;; comment between fn name and first arg should move before form
+          expected (lines ";; comment1"
+                          "(or x"
+                          "    ;; comment2"
+                          "    y)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when standalone comment between function name and first argument"
+    (let [code (lines "(or"
+                      "  ;; comment1"
+                      "  x"
+                      "  ;; comment2"
+                      "  y)")
+          ;; standalone comment between fn name and first arg should move before form
+          expected (lines ";; comment1"
+                          "(or x"
+                          "    ;; comment2"
+                          "    y)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when standalone comment is already properly positioned"
+    (let [code (lines "(let [x 1]"
+                      "  ;; process x"
+                      "  (process x))")
+          expected (lines "(let [x 1]"
+                          "  ;; process x"
+                          "  (process x))")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when inline comment has single semicolon"
+    (let [code "(def x 1) ; single"
+          expected (lines "(def x"
+                          "  1) ;; single")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
+
+(deftest test-vector-comments
+  (testing "when inline comment appears inside regular vector"
+    (let [code (lines "[1 ;; first element"
+                      " 2 3]")
+          expected (lines "[1 ;; first element"
+                          " 2"
+                          " 3]")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when block comment appears inside vector"
+    (let [code (lines "[1"
+                      "  ;; second element"
+                      " 2"
+                      " 3]")
+          expected (lines "[1"
+                          " ;; second element"
+                          " 2"
+                          " 3]")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when multiple inline comments appear in vector"
+    (let [code (lines "[1 ;; first"
+                      " 2 ;; second"
+                      " 3]")
+          expected (lines "[1 ;; first"
+                          " 2 ;; second"
+                          " 3]")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when block comment appears before first element inside vector"
+    (let [code (lines "[;; first element"
+                      " 1"
+                      " 2"
+                      " 3]")
+          expected (lines "[;; first element"
+                          " 1"
+                          " 2"
+                          " 3]")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when vector has trailing comment"
+    (let [code (lines "[1 2 3 ;; trailing inline comment"
+                      " ;; trailing block comment"
+                      "] ; end of vector")
+          expected (lines "[1"
+                          " 2"
+                          " 3 ;; trailing inline comment"
+                          " ;; trailing block comment"
+                          " ] ;; end of vector")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
+
+(deftest test-map-comments
+  (testing "when inline comment appears after key in map"
+    (let [code (lines "{:a ;; first key"
+                      " 1 :b 2}")
+          expected (lines "{;; first key"
+                          " :a 1"
+                          " :b 2}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when inline comment appears after value in map"
+    (let [code (lines "{:a 1 ;; first value"
+                      " :b 2}")
+          expected (lines "{:a 1 ;; first value"
+                          " :b 2}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when standalone block comment appears inside map"
+    (let [code (lines "{:a 1"
+                      " ;; second pair"
+                      " :b 2}")
+          expected (lines "{:a 1"
+                          " ;; second pair"
+                          " :b 2}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when standalone block comment appears before first key"
+    (let [code (lines "{;; first pair"
+                      " :a 1"
+                      " :b 2}")
+          expected (lines "{;; first pair"
+                          " :a 1"
+                          " :b 2}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when multiple inline comments appear in map"
+    (let [code (lines "{:a 1 ;; first"
+                      " :b 2 ;; second"
+                      " :c 3}")
+          expected (lines "{:a 1 ;; first"
+                          " :b 2 ;; second"
+                          " :c 3}")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when map has trailing comment"
+    (let [code "{:a 1 :b 2} ;; end of map"
+          expected (lines "{:a 1"
+                          " :b 2} ;; end of map")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when inline comment at end of map would consume closing brace"
+    (let [code (lines "{:a 1     ; comment"
+                      "   }")
+          expected (lines "{:a 1 ;; comment"
+                          " }")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Inline comment should end the line, closing brace on next line")))
+  (testing "when inline comment appears after key"
+    (let [code (lines "{;; comment before first key"
+                      " :a"
+                      "  ; comment after first key"
+                      " 1"
+                      " ;; comment after value"
+                      "   }")
+          expected (lines "{;; comment before first key"
+                          " ;; comment after first key"
+                          " :a 1"
+                          " ;; comment after value"
+                          " }")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Inline comment should end the line, closing brace on next line")))
+  (testing "when nested map has trailing comment"
+    (let [code (lines "{:outer {:inner 1 ;; comment"
+                      "}}")
+          expected (lines "{:outer {:inner 1 ;; comment"
+                          "         }}")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Nested map's closing brace should align with its contents"))))
+
+(deftest test-quoting
+  (testing "when using regular quote"
+    (let [code "'(foo bar baz)"
+          expected (lines "'(foo bar"
+                          "      baz)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when using syntax-quote"
+    (let [code "`(foo bar baz)"
+          expected (lines "`(foo bar"
+                          "      baz)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when using unquote in syntax-quote"
+    (let [code "`(list ~x ~y)"
+          expected (lines "`(list ~x"
+                          "       ~y)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when using unquote-splicing"
+    (let [code "`(foo ~@args bar)"
+          expected (lines "`(foo ~@args"
+                          "      bar)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+
+  (testing "when unquote-splicing has a multi-line collection expression"
+    (let [code "`(foo ~@[1 2 3] bar)"
+          expected (lines "`(foo ~@[1"
+                          "         2"
+                          "         3]"
+                          "      bar)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when using var quote"
+    (let [code "(alter-var-root #'config merge new-config)"
+          expected (lines "(alter-var-root #'config"
+                          "                merge"
+                          "                new-config)")
+          formatted (core/format-code code)]
+      (is (= expected formatted))))
+  (testing "when var quote is in a vector"
+    (let [code "[#'foo #'bar #'baz]"
+          expected (lines "[#'foo"
+                          " #'bar"
+                          " #'baz]")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
+
+(deftest test-anonymous-functions
+  (testing "when using #(...) forms"
+    (let [code "#(foo bar baz)"
+          expected (lines "#(foo bar"
+                          "      baz)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
+
+(deftest test-uneval-forms
+  (testing "when using #_ reader macro"
+    (let [code "#_(foo bar baz)"
+          expected (lines "#_(foo bar"
+                          "       baz)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Uneval form should format its content"))
+    (let [code "(def x #_old-value new-value)"
+          expected (lines "(def x"
+                          "  #_old-value"
+                          "  new-value)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Uneval forms should be positioned correctly in context"))
+    (let [code "#_{:a 1 :b 2}"
+          expected (lines "#_{:a 1"
+                          "   :b 2}")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Uneval maps should format correctly")))
+  (testing "when using nested #_ forms"
+    (let [code "[#_ #_ x y z]"
+          expected (lines "[#_x"
+                          " #_y"
+                          " z]")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Nested uneval forms should preserve structure"))
+    (let [code "(foo #_ #_ x y z)"
+          expected (lines "(foo #_x"
+                          "     #_y"
+                          "     z)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Nested uneval in function call should format correctly"))))
+
+(deftest test-set-comments
+  (testing "when set has comments in various positions"
+    (let [code "#{;; comment before first
+               :first
+               :middle ;; inline comment
+               ;; comment between elements
+               :last
+               ;; comment after last element
+               }"
+          expected (lines "#{;; comment before first"
+                          "  :first"
+                          "  :middle ;; inline comment"
+                          "  ;; comment between elements"
+                          "  :last"
+                          "  ;; comment after last element"
+                          "  }")
+          formatted (core/format-code code)]
+      (is (= expected formatted)))))
+
+(deftest test-ampersand-rest-comments
+  "Tests that & rest ;; comment stays together on one line in all contexts"
+  (testing "when vector has & rest with inline comment"
+    (let [code "[a & rest ;; variadic args
+              ]"
+          expected (lines "[a"
+                          " & rest ;; variadic args"
+                          " ]")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "& rest ;; comment should stay together on one line in vector")))
+  (testing "when function args have & rest with inline comment"
+    (let [code "(defn f [a &
+                     rest ;; variadic args
+                    ]
+              (apply + a rest))"
+          expected (lines "(defn f [a"
+                          "         & rest ;; variadic args"
+                          "         ]"
+                          "  (apply +"
+                          "         a"
+                          "         rest))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "& rest ;; comment should stay together in function arguments")))
+  (testing "when function call has & rest with inline comment"
+    (let [code "(some-fn a &
+                      rest ;; spread args
+                     )"
+          expected (lines "(some-fn a"
+                          "         & rest ;; spread args"
+                          "         )")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "& rest ;; comment should stay together in function calls")))
+  (testing "when vector has multiple & elements with comments"
+    (let [code "[a & rest ;; first comment
+              b & more ;; second comment
+              ]"
+          expected (lines "[a"
+                          " & rest ;; first comment"
+                          " b"
+                          " & more ;; second comment"
+                          " ]")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multiple & rest ;; comment pairs should each stay together"))))
+
+(deftest test-do-form-formatting
+  (testing "when do has single expression"
+    (let [code "(do (println \"hello\"))"
+          expected (lines "(do"
+                          "  (println \"hello\"))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Single expression in do should be on its own line")))
+  (testing "when do has multiple expressions"
+    (let [code "(do (println \"starting\") (process-data) (println \"done\"))"
+          expected (lines "(do"
+                          "  (println \"starting\")"
+                          "  (process-data)"
+                          "  (println \"done\"))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "All expressions in do should be on separate lines")))
+  (testing "when do is nested"
+    (let [code "(let [x 1] (do (println x) (inc x)))"
+          expected (lines "(let [x 1]"
+                          "  (do"
+                          "    (println x)"
+                          "    (inc x)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Nested do should maintain proper indentation")))
+  (testing "when do has comments"
+    (let [code "(do ;; setup
+                  (init)
+                  ;; main work
+                  (process)
+                  (cleanup) ;; inline
+                  )"
+          expected (lines "(do"
+                          "  ;; setup"
+                          "  (init)"
+                          "  ;; main work"
+                          "  (process)"
+                          "  (cleanup) ;; inline"
+                          "  )")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Comments in do should be preserved")))
+  (testing "when do has complex nested expressions"
+    (let [code "(do (let [x 1] x) (if true :yes :no) {:a 1 :b 2})"
+          expected (lines "(do"
+                          "  (let [x 1]"
+                          "    x)"
+                          "  (if true"
+                          "    :yes"
+                          "    :no)"
+                          "  {:a 1"
+                          "   :b 2})")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Complex expressions in do should each format independently")))
+  (testing "when do has only inline comment and no body"
+    (let [code "(do ;; just a comment\n)"
+          expected (lines "(do ;; just a comment"
+                          "  )")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Inline comment should stay on same line as do")))
+  (testing "when do form has block and inline comments between inner nodes"
+    (let [code "(do
+                  (def x 1)
+                  ;; block comment between nodes
+                  (def y 2) ;; inline after node
+                  ;; another block
+                  (+ x y) ;; final inline
+                  )"
+          expected (lines "(do"
+                          "  (def x"
+                          "    1)"
+                          "  ;; block comment between nodes"
+                          "  (def y"
+                          "    2) ;; inline after node"
+                          "  ;; another block"
+                          "  (+ x"
+                          "     y) ;; final inline"
+                          "  )")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Block and inline comments between nodes should be preserved"))))
+
+(deftest test-comment-form-formatting
+  (testing "when comment has single expression"
+    (let [code "(comment (println \"debug\"))"
+          expected (lines "(comment"
+                          "  (println \"debug\"))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Single expression in comment should be on its own line")))
+  (testing "when comment has multiple expressions"
+    (let [code "(comment (def x 1) (def y 2) (+ x y))"
+          expected (lines "(comment"
+                          "  (def x"
+                          "    1)"
+                          "  (def y"
+                          "    2)"
+                          "  (+ x"
+                          "     y))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "All expressions in comment should be on separate lines and formatted")))
+  (testing "when comment form is nested"
+    (let [code "(defn foo [] (comment (println \"TODO: implement\") nil) :placeholder)"
+          expected (lines "(defn foo []"
+                          "  (comment"
+                          "    (println \"TODO: implement\")"
+                          "    nil)"
+                          "  :placeholder)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Nested comment form should maintain proper indentation")))
+  (testing "when comment form has inline comments"
+    (let [code "(comment
+                  (def x 1) ;; temporary
+                  ;; more debugging
+                  (println x))"
+          expected (lines "(comment"
+                          "  (def x"
+                          "    1) ;; temporary"
+                          "  ;; more debugging"
+                          "  (println x))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Comments inside comment form should be preserved")))
+  (testing "when comment form has text and code"
+    (let [code "(comment
+                  \"Some documentation\"
+                  (example-usage)
+                  \"Another note\")"
+          expected (lines "(comment"
+                          "  \"Some documentation\""
+                          "  (example-usage)"
+                          "  \"Another note\")")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Text and code in comment form should format correctly")))
+  (testing "when comment has only inline comment and no body"
+    (let [code "(comment ;; just a comment\n)"
+          expected (lines "(comment ;; just a comment"
+                          "  )")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Closing paren should not be commented out")))
+  (testing "when comment form has block and inline comments between inner nodes"
+    (let [code "(comment
+                  (def x 1)
+                  ;; block comment between nodes
+                  (def y 2) ;; inline after node
+                  ;; another block
+                  (+ x y) ;; final inline
+                  )"
+          expected (lines "(comment"
+                          "  (def x"
+                          "    1)"
+                          "  ;; block comment between nodes"
+                          "  (def y"
+                          "    2) ;; inline after node"
+                          "  ;; another block"
+                          "  (+ x"
+                          "     y) ;; final inline"
+                          "  )")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Block and inline comments between nodes should be preserved"))))

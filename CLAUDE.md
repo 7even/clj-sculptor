@@ -20,6 +20,8 @@ an AST enriched with comments, then generating formatted code using predefined f
 - **Tests**: Use `(testing "when condition" ...)` not `(testing "returns result" ...)`
 - **Running tests**: Use REPL for testing: `(require 'clj-sculptor.rules-test :reload)`
   then `(clojure.test/run-tests 'clj-sculptor.rules-test)`
+- **Testing formatter**: Test formatter on its own code:
+  `clojure -M:cli -i src/clj_sculptor/rules2.clj -o src/clj_sculptor/rules2.clj`
 
 ## Project Structure
 - `src/clj_sculptor/core.clj` - Main library functions using rewrite-clj
