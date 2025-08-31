@@ -2164,3 +2164,126 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "No excessive blank lines should appear after block comments"))))
+
+(deftest test-deftest-formatting
+  (testing "when formatting basic deftest"
+    (let [code "(deftest my-test (is (= 1 1)))"
+          expected (lines "(deftest my-test"
+                          "  (is (= 1"
+                          "         1)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "deftest should format with 2-space indented body")))
+  (testing "when deftest has multiple assertions"
+    (let [code (lines "(deftest complex-test"
+                      "  (is (= 1 1))"
+                      "  (is (= 2 2))"
+                      "  (is (= 3 3)))")
+          expected (lines "(deftest complex-test"
+                          "  (is (= 1"
+                          "         1))"
+                          "  (is (= 2"
+                          "         2))"
+                          "  (is (= 3"
+                          "         3)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Multiple assertions should each be on their own line with 2-space indent")))
+  (testing "when deftest is empty"
+    (let [code "(deftest empty-test)"
+          expected "(deftest empty-test)"
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Empty deftest should stay on one line")))
+  (testing "when deftest contains comments"
+    (let [code (lines "(deftest test-with-comments"
+                      "  ;; First assertion"
+                      "  (is (= 1 1))"
+                      "  ;; Second assertion"
+                      "  (is (= 2 2)))")
+          expected (lines "(deftest test-with-comments"
+                          "  ;; First assertion"
+                          "  (is (= 1"
+                          "         1))"
+                          "  ;; Second assertion"
+                          "  (is (= 2"
+                          "         2)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Comments in deftest should be properly formatted"))))
+
+(deftest test-testing-formatting
+  (testing "when formatting basic testing form"
+    (let [code "(testing \"description\" (is (= 1 1)))"
+          expected (lines "(testing \"description\""
+                          "  (is (= 1"
+                          "         1)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "testing should format with description on same line and body indented")))
+  (testing "when testing forms are nested"
+    (let [code (lines "(testing \"outer\""
+                      "  (testing \"inner\""
+                      "    (is (= 1 1))))")
+          expected (lines "(testing \"outer\""
+                          "  (testing \"inner\""
+                          "    (is (= 1"
+                          "           1))))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Nested testing forms should be properly indented")))
+  (testing "when testing contains let binding"
+    (let [code (lines "(testing \"with let\""
+                      "  (let [x 1 y 2]"
+                      "    (is (= (+ x y) 3))))")
+          expected (lines "(testing \"with let\""
+                          "  (let [x 1"
+                          "        y 2]"
+                          "    (is (= (+ x"
+                          "              y)"
+                          "           3))))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "testing with let binding should format correctly")))
+  (testing "when testing form is empty"
+    (let [code "(testing \"empty test\")"
+          expected "(testing \"empty test\")"
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Empty testing form should stay on one line"))))
+
+(deftest test-deftest-with-testing
+  (testing "when deftest contains multiple testing blocks"
+    (let [code (lines "(deftest integration-test"
+                      "  (testing \"first scenario\""
+                      "    (is (= 1 1)))"
+                      "  (testing \"second scenario\""
+                      "    (is (= 2 2))))")
+          expected (lines "(deftest integration-test"
+                          "  (testing \"first scenario\""
+                          "    (is (= 1"
+                          "           1)))"
+                          "  (testing \"second scenario\""
+                          "    (is (= 2"
+                          "           2))))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "deftest with multiple testing blocks should format correctly")))
+  (testing "when deftest has comments between testing blocks"
+    (let [code (lines "(deftest documented-test"
+                      "  ;; Test basic functionality"
+                      "  (testing \"basic\""
+                      "    (is true))"
+                      "  ;; Test advanced features"
+                      "  (testing \"advanced\""
+                      "    (is true)))")
+          expected (lines "(deftest documented-test"
+                          "  ;; Test basic functionality"
+                          "  (testing \"basic\""
+                          "    (is true))"
+                          "  ;; Test advanced features"
+                          "  (testing \"advanced\""
+                          "    (is true)))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "deftest with comments between testing blocks should format correctly"))))

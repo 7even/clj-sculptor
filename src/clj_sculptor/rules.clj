@@ -1316,6 +1316,36 @@
           flatten
           n/list-node))))
 
+(defn format-test-form
+  "Formats test forms (deftest, testing) with name/description on same line as form
+   and body indented by 2 spaces."
+  [form-type
+   args
+   indent]
+  (let [[name-or-desc-map
+         & body-maps] args
+        name-or-desc (:element name-or-desc-map)
+        body-indent (+ indent
+                       2)
+        body-separator (make-separator body-indent)
+        formatted-body (map (partial format-element-with-prefix-and-comment
+                                     body-indent)
+                            body-maps)]
+    (if (empty? formatted-body)
+      ;; No body - just form and name/description
+      (n/list-node [form-type
+                    (n/spaces 1)
+                    name-or-desc])
+      ;; Form with body
+      (->> formatted-body
+           (interpose body-separator)
+           (concat [form-type
+                    (n/spaces 1)
+                    name-or-desc
+                    body-separator])
+           flatten
+           n/list-node))))
+
 (defn- format-import-list
   "Format an import list (java.util Date Calendar) with proper class alignment"
   [import-node
@@ -1611,7 +1641,9 @@
    'cond->> format-pair-based-form
    'try format-try-form
    'do format-body-only-form
-   'comment format-body-only-form})
+   'comment format-body-only-form
+   'deftest format-test-form
+   'testing format-test-form})
 
 ;; Default - return as-is
 (defmethod format-node :default [indent
