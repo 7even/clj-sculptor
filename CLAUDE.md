@@ -10,6 +10,7 @@ an AST enriched with comments, then generating formatted code using predefined f
 - Multi-line format for co-authorship (blank line separation)
 - **Commit messages**: Describe what's being added/changed in the diff, not the
   development process or removed alternatives
+- **NEVER stage or commit code unless explicitly asked to**
 
 ## Code Style Guidelines
 - **Comparisons**: When comparing unknown value with constant, put constant second:
@@ -34,6 +35,16 @@ an AST enriched with comments, then generating formatted code using predefined f
 - `rewrite-clj/rewrite-clj` - AST manipulation with comment preservation
 - `org.clojure/tools.cli` - Command-line argument parsing
 - `lambdaisland/kaocha` - Test runner
+
+## Development Workflow
+- **Test-driven process**:
+  1. Write the test(s) first
+  2. Show test to user for confirmation that expectations are valid
+  3. Write code to make test(s) pass
+- **REPL management**:
+  - **NEVER use `(System/exit 0)`** - this kills the REPL process
+  - Use `tools.namespace` to refresh code when runtime has stale vars
+  - Use `:reload` flag when requiring namespaces to get latest changes
 
 ## rewrite-clj Usage
 - **Raw functions (with `*` suffix)**: Use the "raw" versions of rewrite-clj functions
