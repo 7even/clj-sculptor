@@ -1,25 +1,40 @@
 (ns clj-sculptor.cli
+  (:gen-class)
   (:require [clj-sculptor.core :as core]
-            [clojure.tools.cli :refer [parse-opts]]
             [clojure.java.io :as io]
-            [clojure.string :as str])
-  (:gen-class))
+            [clojure.string :as str]
+            [clojure.tools.cli :refer [parse-opts]]))
 
 (def cli-options
-  [["-i" "--input FILE" "Input file path"
-    :validate [#(.exists (io/file %)) "Input file must exist"]]
-   ["-o" "--output FILE" "Output file path (optional)"]
-   ["-h" "--help" "Show help"]])
+  [["-i"
+    "--input FILE"
+    "Input file path"
+    :validate
+    [#(.exists (io/file %))
+     "Input file must exist"]]
+   ["-o"
+    "--output FILE"
+    "Output file path (optional)"]
+   ["-h"
+    "--help"
+    "Show help"]])
 
 (defn -main [& args]
-  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+  (let [{:keys [options
+                arguments
+                errors
+                summary]} (parse-opts args
+                                      cli-options)]
     (cond
       (:help options)
-      (println "clj-sculptor - Clojure code formatter\n" summary)
+      (println "clj-sculptor - Clojure code formatter\n"
+               summary)
 
       errors
       (do
-        (println "Errors:" (str/join ", " errors))
+        (println "Errors:"
+                 (str/join ", "
+                           errors))
         (System/exit 1))
 
       (:input options)
@@ -30,7 +45,8 @@
                 (cond-> formatted
                   (and (:output options)
                        (seq formatted)
-                       (not= (last formatted) \newline))
+                       (not= (last formatted)
+                             \newline))
                   (str "\n")))
           (println formatted)))
 
@@ -40,5 +56,11 @@
 (defn main
   "Entry point for exec-fn"
   [opts]
-  (let [args (mapcat (fn [[k v]] [(str "--" (name k)) (str v)]) opts)]
-    (apply -main args)))
+  (let [args (mapcat (fn [[k
+                           v]]
+                       [(str "--"
+                             (name k))
+                        (str v)])
+                     opts)]
+    (apply -main
+           args)))
