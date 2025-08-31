@@ -2115,3 +2115,52 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Case form should not have excessive blank lines between comment and cond"))))
+
+(deftest test-adjacent-block-comments
+  (testing "when consecutive block comments appear in cond->"
+    (let [code (lines "(cond-> []"
+                      "  (some? prefix)"
+                      "  (conj prefix)"
+                      "  ;; First comment"
+                      "  ;; Second comment"
+                      "  :always"
+                      "  (conj element))")
+          expected (lines "(cond-> []"
+                          "  (some? prefix)"
+                          "  (conj prefix)"
+                          ""
+                          "  ;; First comment"
+                          "  ;; Second comment"
+                          "  :always"
+                          "  (conj element))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          (str "Consecutive block comments in cond-> should not have excessive"
+               " blank lines between them"))))
+  (testing "when multiple block comments appear consecutively in let"
+    (let [code (lines "(let [x 1]"
+                      "  ;; First comment"
+                      "  ;; Second comment  "
+                      "  ;; Third comment"
+                      "  (+ x 2))")
+          expected (lines "(let [x 1]"
+                          "  ;; First comment"
+                          "  ;; Second comment"
+                          "  ;; Third comment"
+                          "  (+ x"
+                          "     2))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Adjacent block comments should not have blank lines between them")))
+  (testing "when block comment has blank line before next expression"
+    (let [code (lines "(let [x 1]"
+                      "  ;; This is a comment"
+                      "  "
+                      "  (+ x 2))")
+          expected (lines "(let [x 1]"
+                          "  ;; This is a comment"
+                          "  (+ x"
+                          "     2))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "No excessive blank lines should appear after block comments"))))
