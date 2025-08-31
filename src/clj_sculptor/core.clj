@@ -1,7 +1,7 @@
 (ns clj-sculptor.core
   (:require [clj-sculptor.rules :as rules]
-            [rewrite-clj.zip :as z]
-            [rewrite-clj.node :as n]))
+            [rewrite-clj.node :as n]
+            [rewrite-clj.zip :as z]))
 
 (defn format-code
   "Format code using the recursive multimethod architecture."
@@ -9,5 +9,6 @@
   (let [root-node (-> code-str
                       z/of-string
                       z/root)]
-    (-> (rules/format-node 0 root-node)
+    (-> (rules/format-node 0
+                           root-node)
         n/string)))
