@@ -1523,7 +1523,7 @@
             leading-comments (map :element leading-comment-maps)
 
             ;; Combine any inline comment after function name with leading comments
-            all-leading-comments (if inline-comment-after-fn
+            all-leading-comments (if (some? inline-comment-after-fn)
                                    (cons inline-comment-after-fn leading-comments)
                                    leading-comments)
 
@@ -1531,13 +1531,16 @@
             formatted-function (format-element-with-prefix-and-comment (+ indent 1)
                                                                        first-element)
             function-symbol (when (is-token? actual-first-element)
-                              (n/sexpr actual-first-element))]
+                              (n/sexpr actual-first-element))
+
+            ;; Forms that handle their own comment formatting
+            comment-handling-forms #{'do 'comment 'cond 'case 'condp 'cond-> 'cond->>}]
         (cond
           ;; Comments between function name and first arg - move them before the form
-          ;; (except for do and comment forms where comments should stay inside)
+          ;; (except for forms that handle their own comments)
           (and (seq all-leading-comments)
                (seq actual-args)
-               (not (contains? #{'do 'comment} function-symbol)))
+               (not (contains? comment-handling-forms function-symbol)))
           (let [formatted-comments (map (partial format-node indent) all-leading-comments)
                 ;; Skip past comments and whitespace to get to the actual arguments
                 children-after-leading (drop-while (fn [node]
@@ -1553,10 +1556,10 @@
                                   [(n/newlines 1) new-list-node])))
 
           ;; Comments but no arguments - move comments before the form
-          ;; (except for do and comment forms where comments should stay inside)
+          ;; (except for forms that handle their own comments)
           (and (seq all-leading-comments)
                (empty? actual-args)
-               (not (contains? #{'do 'comment} function-symbol)))
+               (not (contains? comment-handling-forms function-symbol)))
           (let [formatted-comments (map (partial format-node indent) all-leading-comments)
                 ;; Just the function name in parentheses
                 simple-function (format-node (+ indent 1) actual-first-element)
@@ -1567,13 +1570,13 @@
           ;; Special form handler exists
           (contains? special-form-handlers function-symbol)
           (let [handler (get special-form-handlers function-symbol)
-                ;; For do/comment forms, include inline comment from function name
-                ;; as first body element
-                args-to-pass (if (and (contains? #{'do 'comment} function-symbol)
-                                      inline-comment-after-fn)
-                               (cons {:element inline-comment-after-fn}
-                                     (concat leading-comment-maps actual-args))
-                               (concat leading-comment-maps actual-args))]
+                ;; For forms that handle comments, include all comments as args
+                args-to-pass (if (contains? comment-handling-forms function-symbol)
+                               (concat (when (some? inline-comment-after-fn)
+                                         [{:element inline-comment-after-fn}])
+                                       leading-comment-maps
+                                       actual-args)
+                               actual-args)]
             (handler actual-first-element args-to-pass indent))
 
           ;; Regular function call - pass the grouped args directly

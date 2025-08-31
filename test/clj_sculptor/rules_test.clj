@@ -1970,3 +1970,53 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Block and inline comments between nodes should be preserved"))))
+
+(deftest test-reduce-with-cond-indentation
+  (testing "when reduce has fn with destructuring and cond in body"
+    (let [code (lines "(reduce (fn [{:keys [result pending]} elem]"
+                      "(cond"
+                      ";; Current element matches predicate"
+                      "(pred elem)"
+                      "{:result result"
+                      ":pending elem}"
+                      ""
+                      ";; We have a pending element"
+                      "(some? pending)"
+                      "{:result (conj result [pending elem])"
+                      ":pending nil}"
+                      ""
+                      ";; Normal element"
+                      ":else"
+                      "{:result (conj result elem)"
+                      ":pending nil}))"
+                      "{:result []"
+                      ":pending nil}"
+                      "elements)")
+          ;; This is what we WANT (desired behavior)
+          expected (lines "(reduce (fn [{:keys [result"
+                          "                     pending]}"
+                          "             elem]"
+                          "          (cond"
+                          "            ;; Current element matches predicate"
+                          "            (pred elem)"
+                          "            {:result result"
+                          "             :pending elem}"
+                          ""
+                          "            ;; We have a pending element"
+                          "            (some? pending)"
+                          "            {:result (conj result"
+                          "                           [pending"
+                          "                            elem])"
+                          "             :pending nil}"
+                          ""
+                          "            ;; Normal element"
+                          "            :else"
+                          "            {:result (conj result"
+                          "                           elem)"
+                          "             :pending nil}))"
+                          "        {:result []"
+                          "         :pending nil}"
+                          "        elements)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "cond should be properly indented with comments in correct position"))))
