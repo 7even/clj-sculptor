@@ -917,24 +917,83 @@
              n/list-node))
 
       ;; Default case for cond and other similar forms
-      (let [;; Process pairs in groups of two
-            pair-groups (let [pairs (partition-all 2 args)]
-                          (mapv (fn [pair]
-                                  (if (= (count pair)
-                                         2)
-                                    (let [[key-arg value-arg] pair
-                                          formatted-key (format-entry key-arg)
-                                          formatted-value (format-entry value-arg)]
-                                      [formatted-key body-separator formatted-value])
-                                    ;; Odd case - single orphaned element
-                                    [(format-entry (first pair))]))
-                                pairs))
-            pairs-content (if (seq pair-groups)
-                            (interpose blank-line-separator pair-groups)
-                            [])]
+      (let [;; Convert args to indexed vector for easier access
+            args-vec (vec args)
+            ;; Process args maintaining order, grouping pairs and handling comments
+            processed (reduce (fn [{:keys [result pending-blank? skip-next?]} [idx current]]
+                                (cond
+                                  ;; Skip this element if it was already processed as a value
+                                  skip-next?
+                                  {:result result
+                                   :pending-blank? pending-blank?
+                                   :skip-next? false}
+
+                                  ;; Process standalone comment
+                                  (standalone-comment? current)
+                                  (let [formatted-comment (format-entry current)
+                                        ;; Comments need to be followed by
+                                        ;; newline + indent for next element
+                                        comment-with-sep [formatted-comment body-separator]]
+                                    {:result (if pending-blank?
+                                               (conj result
+                                                     blank-line-separator
+                                                     comment-with-sep)
+                                               (conj result
+                                                     comment-with-sep))
+                                     :pending-blank? false
+                                     :skip-next? false})
+
+                                  ;; Process non-comment element
+                                  :else
+                                  (let [next-elem (get args-vec (inc idx))]
+                                    (cond
+                                      ;; No next element - orphaned key
+                                      (nil? next-elem)
+                                      (let [formatted-key (format-entry current)]
+                                        {:result (if pending-blank?
+                                                   (conj result
+                                                         blank-line-separator
+                                                         formatted-key)
+                                                   (conj result
+                                                         formatted-key))
+                                         :pending-blank? false
+                                         :skip-next? false})
+
+                                      ;; Next is comment - orphaned key
+                                      (standalone-comment? next-elem)
+                                      (let [formatted-key (format-entry current)]
+                                        {:result (if pending-blank?
+                                                   (conj result
+                                                         blank-line-separator
+                                                         formatted-key)
+                                                   (conj result
+                                                         formatted-key))
+                                         :pending-blank? true
+                                         :skip-next? false})
+
+                                      ;; Next is not comment - form a pair
+                                      :else
+                                      (let [formatted-key (format-entry current)
+                                            formatted-value (format-entry next-elem)
+                                            pair-content [formatted-key
+                                                          body-separator
+                                                          formatted-value]]
+                                        {:result (if pending-blank?
+                                                   (conj result
+                                                         blank-line-separator
+                                                         pair-content)
+                                                   (conj result
+                                                         pair-content))
+                                         :pending-blank? true
+                                         :skip-next? true})))))
+                              {:result []
+                               :pending-blank? false
+                               :skip-next? false}
+                              (map-indexed vector args-vec))
+            processed (:result processed)]
         (->> (concat [form-type
                       body-separator]
-                     pairs-content)
+                     processed)
              flatten
              n/list-node)))))
 

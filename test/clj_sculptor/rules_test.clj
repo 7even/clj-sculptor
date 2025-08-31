@@ -1119,6 +1119,46 @@
           formatted (core/format-code code)]
       (is (= expected formatted)))))
 
+(deftest test-cond-comment-behavior
+  (testing "when cond is preceded by a block comment"
+    (let [code "(do
+                  ;; This is a comment before cond
+                  (cond
+                    a b
+                    c d))"
+          expected (lines "(do"
+                          "  ;; This is a comment before cond"
+                          "  (cond"
+                          "    a"
+                          "    b"
+                          ""
+                          "    c"
+                          "    d))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Cond should be properly indented when preceded by a block comment")))
+  (testing "when block comments appear between cond pairs"
+    (let [code "(cond
+                  a b
+                  ;; comment between pairs
+                  c d
+                  ;; another comment
+                  e f)"
+          expected (lines "(cond"
+                          "  a"
+                          "  b"
+                          ""
+                          "  ;; comment between pairs"
+                          "  c"
+                          "  d"
+                          ""
+                          "  ;; another comment"
+                          "  e"
+                          "  f)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Block comments should stick to the next pair, not the previous one"))))
+
 (deftest test-threading-macro-pairs
   (testing "when cond-> has initial expression"
     (let [code "(cond-> x (pos? x) inc (even? x) (* 2))"
