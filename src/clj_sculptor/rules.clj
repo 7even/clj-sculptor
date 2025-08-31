@@ -822,13 +822,15 @@
         body-separator (make-separator entries-indent)
         blank-line-separator [(n/newlines 2) (n/spaces entries-indent)]
         args-vec (vec pair-args)
-        processed (reduce (fn [{:keys [result pending-blank? skip-next?]} [idx current]]
+        processed (reduce (fn [{:keys [result pending-blank? skip-next? after-orphaned-key?]}
+                               [idx current]]
                             (cond
                               ;; Skip this element if it was already processed as a value
                               skip-next?
                               {:result result
                                :pending-blank? pending-blank?
-                               :skip-next? false}
+                               :skip-next? false
+                               :after-orphaned-key? false}
 
                               ;; Process standalone comment
                               (standalone-comment? current)
@@ -836,14 +838,39 @@
                                     ;; Comments need to be followed by
                                     ;; newline + indent for next element
                                     comment-with-sep [formatted-comment body-separator]]
-                                {:result (if pending-blank?
-                                           (conj result
+                                ;; Check if this comment is right after an orphaned key
+                                (cond
+                                  ;; Don't add blank line before comment after orphaned key
+                                  after-orphaned-key?
+                                  {:result (conj result body-separator comment-with-sep)
+                                   :pending-blank? false
+                                   :skip-next? false
+                                   :after-orphaned-key? false}
+
+                                  ;; Add blank line before comment when pending-blank is true
+                                  pending-blank?
+                                  {:result (conj result
                                                  blank-line-separator
                                                  comment-with-sep)
-                                           (conj result
-                                                 comment-with-sep))
-                                 :pending-blank? false
-                                 :skip-next? false})
+                                   :pending-blank? false
+                                   :skip-next? false
+                                   :after-orphaned-key? false}
+
+                                  ;; If we have existing content, add blank line before comment
+                                  (seq result)
+                                  {:result (conj result
+                                                 blank-line-separator
+                                                 comment-with-sep)
+                                   :pending-blank? false
+                                   :skip-next? false
+                                   :after-orphaned-key? false}
+
+                                  ;; First element is a comment, no blank line needed
+                                  :else
+                                  {:result (conj result comment-with-sep)
+                                   :pending-blank? false
+                                   :skip-next? false
+                                   :after-orphaned-key? false}))
 
                               ;; Process non-comment element
                               :else
@@ -859,22 +886,24 @@
                                                (conj result
                                                      formatted-key))
                                      :pending-blank? false
-                                     :skip-next? false})
+                                     :skip-next? false
+                                     :after-orphaned-key? false})
 
                                   ;; Next is comment - orphaned key
-                                  ;; (don't add blank before comment)
+                                  ;; Don't add separator after orphaned key
+                                  ;; when followed by comment
                                   (standalone-comment? next-elem)
                                   (let [formatted-key (format-entry current)]
                                     {:result (if pending-blank?
                                                (conj result
                                                      blank-line-separator
-                                                     formatted-key
-                                                     body-separator)
+                                                     formatted-key)
                                                (conj result
-                                                     formatted-key
-                                                     body-separator))
+                                                     formatted-key))
+                                     ;; Mark that next comment is after orphaned key
                                      :pending-blank? false
-                                     :skip-next? false})
+                                     :skip-next? false
+                                     :after-orphaned-key? true})
 
                                   ;; Next is not comment - form a pair
                                   :else
@@ -890,10 +919,12 @@
                                                (conj result
                                                      pair-content))
                                      :pending-blank? true
-                                     :skip-next? true})))))
+                                     :skip-next? true
+                                     :after-orphaned-key? false})))))
                           {:result []
                            :pending-blank? false
-                           :skip-next? false}
+                           :skip-next? false
+                           :after-orphaned-key? false}
                           (map-indexed vector args-vec))]
     (:result processed)))
 
@@ -967,9 +998,15 @@
             formatted-default (when (some? default-val)
                                 (format-element-with-prefix-and-comment entries-indent
                                                                         default-val))
-            content-with-default (if (some? formatted-default)
-                                   (concat blank-line-separator [formatted-default])
-                                   [])]
+            ;; Only add blank line if default exists and the last pair wasn't a comment
+            content-with-default (when (some? formatted-default)
+                                   ;; Check if we need a blank line before default
+                                   ;; If last item in pairs was a comment, no blank line needed
+                                   (let [last-pair-item (last pairs)]
+                                     (if (and last-pair-item
+                                              (standalone-comment? last-pair-item))
+                                       [formatted-default]
+                                       (concat blank-line-separator [formatted-default]))))]
         (->> (concat [form-type
                       (n/spaces 1)
                       formatted-expr

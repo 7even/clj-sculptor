@@ -2090,4 +2090,28 @@
                           "  (some-function))")
           formatted (core/format-code code)]
       (is (= expected formatted)
-          "Comments should not have excessive blank lines in case forms"))))
+          "Comments should not have excessive blank lines in case forms")))
+  (testing "when case has a block comment before the default value"
+    (let [code (lines "(case (n/tag child)"
+                      "  :newline"
+                      "  (handle-newline child)"
+                      "  "
+                      "  ;; Regular element"
+                      "  "
+                      "  (cond"
+                      "    (pred child) result1"
+                      "    :else result2))")
+          expected (lines "(case (n/tag child)"
+                          "  :newline"
+                          "  (handle-newline child)"
+                          ""
+                          "  ;; Regular element"
+                          "  (cond"
+                          "    (pred child)"
+                          "    result1"
+                          ""
+                          "    :else"
+                          "    result2))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Case form should not have excessive blank lines between comment and cond"))))
