@@ -862,15 +862,18 @@
                                      :skip-next? false})
 
                                   ;; Next is comment - orphaned key
+                                  ;; (don't add blank before comment)
                                   (standalone-comment? next-elem)
                                   (let [formatted-key (format-entry current)]
                                     {:result (if pending-blank?
                                                (conj result
                                                      blank-line-separator
-                                                     formatted-key)
+                                                     formatted-key
+                                                     body-separator)
                                                (conj result
-                                                     formatted-key))
-                                     :pending-blank? true
+                                                     formatted-key
+                                                     body-separator))
+                                     :pending-blank? false
                                      :skip-next? false})
 
                                   ;; Next is not comment - form a pair
@@ -955,8 +958,9 @@
       (let [[expr-map & pair-args] args
             expr-align (+ indent 1 (count form-type-str) 1)
             formatted-expr (format-element-with-prefix-and-comment expr-align expr-map)
-            ;; Handle pairs and possible default value
-            [pairs default-val] (if (odd? (count pair-args))
+            ;; Handle pairs and possible default value - filter out comments for count
+            non-comment-args (remove standalone-comment? pair-args)
+            [pairs default-val] (if (odd? (count non-comment-args))
                                   [(butlast pair-args) (last pair-args)]
                                   [pair-args nil])
             processed (process-pair-args-with-comments pairs indent)

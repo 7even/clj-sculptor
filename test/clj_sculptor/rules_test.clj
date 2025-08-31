@@ -2065,3 +2065,29 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "Comments should stay with their test-expression pairs"))))
+
+(deftest test-comment-spacing-bug
+  (testing "when cond has comment before orphaned element"
+    (let [code (lines "(cond"
+                      "  :key-waiting"
+                      "  ;; Orphaned key"
+                      "  (some-function))")
+          expected (lines "(cond"
+                          "  :key-waiting"
+                          "  ;; Orphaned key"
+                          "  (some-function))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Comments should not have excessive blank lines in cond forms")))
+  (testing "when case has comment before orphaned element"
+    (let [code (lines "(case x"
+                      "  :key-waiting"
+                      "  ;; Orphaned key"
+                      "  (some-function))")
+          expected (lines "(case x"
+                          "  :key-waiting"
+                          "  ;; Orphaned key"
+                          "  (some-function))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Comments should not have excessive blank lines in case forms"))))
