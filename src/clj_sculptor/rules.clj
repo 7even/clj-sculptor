@@ -959,26 +959,18 @@
             [pairs default-val] (if (odd? (count pair-args))
                                   [(butlast pair-args) (last pair-args)]
                                   [pair-args nil])
-            ;; Process pairs in groups of two
-            pair-groups (->> pairs
-                             (partition 2)
-                             (mapv (fn [[key-arg value-arg]]
-                                     (let [formatted-key (format-entry key-arg)
-                                           formatted-value (format-entry value-arg)]
-                                       [formatted-key body-separator formatted-value]))))
+            processed (process-pair-args-with-comments pairs indent)
             formatted-default (when (some? default-val)
-                                (format-entry default-val))
-            ;; Join pairs with blank line separators
-            pairs-content (if (seq pair-groups)
-                            (interpose blank-line-separator pair-groups)
-                            [])
-            content-with-default (when (some? formatted-default)
-                                   (concat blank-line-separator [formatted-default]))]
+                                (format-element-with-prefix-and-comment entries-indent
+                                                                        default-val))
+            content-with-default (if (some? formatted-default)
+                                   (concat blank-line-separator [formatted-default])
+                                   [])]
         (->> (concat [form-type
                       (n/spaces 1)
                       formatted-expr
                       body-separator]
-                     pairs-content
+                     processed
                      content-with-default)
              flatten
              n/list-node))

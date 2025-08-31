@@ -1055,6 +1055,23 @@
                           "  \"default\")")
           formatted (core/format-code code)]
       (is (= expected formatted))))
+  (testing "when case has comments between test-value pairs"
+    (let [code (lines "(case x"
+                      "  ;; First case"
+                      "  :a 1"
+                      "  ;; Second case"
+                      "  :b 2)")
+          expected (lines "(case x"
+                          "  ;; First case"
+                          "  :a"
+                          "  1"
+                          ""
+                          "  ;; Second case"
+                          "  :b"
+                          "  2)")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Comments should stay with their test-value pairs like in cond forms")))
   (testing "when condp has predicate and expression"
     (let [code "(condp = x :a 1 :b 2)"
           expected (lines "(condp = x"
