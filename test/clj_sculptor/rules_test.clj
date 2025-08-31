@@ -2020,3 +2020,31 @@
           formatted (core/format-code code)]
       (is (= expected formatted)
           "cond should be properly indented with comments in correct position"))))
+
+(deftest test-cond-arrow-comment-handling
+  (testing "when cond-> has comments between test-expression pairs"
+    (let [code (lines "(cond-> x"
+                      "  ;; First transformation"
+                      "  true (assoc :a 1)"
+                      "  ;; Second transformation"
+                      "  (even? n) (update :b inc)"
+                      "  ;; Final transformation"
+                      "  (pos? n) (assoc :c 3))")
+          expected (lines "(cond-> x"
+                          "  ;; First transformation"
+                          "  true"
+                          "  (assoc :a"
+                          "         1)"
+                          ""
+                          "  ;; Second transformation"
+                          "  (even? n)"
+                          "  (update :b"
+                          "          inc)"
+                          ""
+                          "  ;; Final transformation"
+                          "  (pos? n)"
+                          "  (assoc :c"
+                          "         3))")
+          formatted (core/format-code code)]
+      (is (= expected formatted)
+          "Comments should stay with their test-expression pairs"))))
